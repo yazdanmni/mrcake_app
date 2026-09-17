@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mr_cake_project/core/theme/app_colors.dart';
-import 'package:mr_cake_project/models/category_model.dart';
+import 'package:mr_cake_project/data/categories_data.dart';
 import 'package:mr_cake_project/models/course_intro_video.dart';
 import 'package:mr_cake_project/pages/home/home_courses.dart';
 import 'package:mr_cake_project/pages/home/widgets/course_intro_videos.dart';
@@ -19,45 +19,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final List<CategoryModel> categories = [
-    CategoryModel(
-      id: 1,
-      title: 'کیک',
-      image:
-          'https://img.icons8.com/?size=100&id=40786&format=png&color=000000',
-    ),
-    CategoryModel(
-      id: 2,
-      title: 'شیرینی',
-      image: 'https://img.icons8.com/?size=100&id=9162&format=png&color=000000',
-    ),
-    CategoryModel(
-      id: 3,
-      title: 'دسر',
-      image: 'https://img.icons8.com/?size=100&id=4047&format=png&color=000000',
-    ),
-    CategoryModel(
-      id: 4,
-      title: 'نان',
-      image: 'https://img.icons8.com/?size=100&id=4043&format=png&color=000000',
-    ),
-    CategoryModel(
-      id: 5,
-      title: 'خامه',
-      image: 'https://img.icons8.com/?size=100&id=9162&format=png&color=000000',
-    ),
-    CategoryModel(
-      id: 6,
-      title: 'کروسان',
-      image:
-          'https://img.icons8.com/?size=100&id=24596&format=png&color=000000',
-    ),
-    CategoryModel(
-      id: 7,
-      title: 'کاکائو',
-      image: 'https://img.icons8.com/?size=100&id=2395&format=png&color=000000',
-    ),
-  ];
+  final categories = CategoriesData.categories;
   // Temporary mock banners until the backend endpoint is ready.
   final List<BannerModel> banners = const [
     BannerModel(
@@ -108,7 +70,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   HomeBanner(banners: banners),
                   SizedBox(height: 30.h),
                   Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 24.w),
+                    padding: EdgeInsets.symmetric(horizontal: 25.w),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       textDirection: TextDirection.rtl,

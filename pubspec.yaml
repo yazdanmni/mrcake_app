@@ -39,6 +39,8 @@ dependencies:
   otp_text_field: ^1.1.5
   image_picker: ^1.2.3
   image_cropper: ^12.2.1
+  video_player: ^2.9.2
+  shared_preferences: ^2.5.3
 
 dev_dependencies:
   flutter_test:

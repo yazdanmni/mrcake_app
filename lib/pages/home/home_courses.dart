@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:mr_cake_project/data/courses_data.dart';
+import 'package:mr_cake_project/utils/course_utils.dart';
 
 import '../../models/course.dart';
 import 'widgets/course_card.dart';
@@ -22,60 +24,16 @@ class _HomeCoursesState extends State<HomeCourses> {
 
   double _page = 1.0;
 
-  final List<Course> courses = const [
-    Course(
-      image:
-          'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=900',
-      title: 'آموزش جامع کیک‌های حرفه‌ای',
-      instructorFirstName: 'مریم',
-      instructorLastName: 'احمدی',
-      instructorImage:
-          'https://i.pravatar.cc/300?img=47',
-      price: '2490000',
-      currency: 'تومان',
-      lessons: '24',
-      duration: '120',
-    ),
-    Course(
-      image:
-          'https://images.unsplash.com/photo-1551024506-0bccd828d307?w=900',
-      title: 'آموزش تخصصی دسر و شیرینی',
-      instructorFirstName: 'سارا',
-      instructorLastName: 'محمدی',
-      instructorImage:
-          'https://i.pravatar.cc/300?img=32',
-      price: '1890000',
-      currency: 'تومان',
-      lessons: '18',
-      duration: '95',
-    ),
-    Course(
-      image:
-          'https://images.unsplash.com/photo-1486427944299-d1955d23e34d?w=900',
-      title: 'آموزش شیرینی‌های مدرن و خاص',
-      instructorFirstName: 'نگار',
-      instructorLastName: 'کریمی',
-      instructorImage:
-          'https://i.pravatar.cc/300?img=44',
-      price: '2190000',
-      currency: 'تومان',
-      lessons: '21',
-      duration: '105',
-    ),
-    Course(
-      image:
-          'https://images.unsplash.com/photo-1571115177098-24ec42ed204d?w=900',
-      title: 'آموزش کیک‌های مجلسی و لوکس',
-      instructorFirstName: 'الهام',
-      instructorLastName: 'رضایی',
-      instructorImage:
-          'https://i.pravatar.cc/300?img=49',
-      price: '2990000',
-      currency: 'تومان',
-      lessons: '28',
-      duration: '140',
-    ),
-  ];
+  // ================================================================
+  // POPULAR COURSES
+  // از هر دسته 2 دوره با بیشترین تعداد هنرجو
+  // ================================================================
+
+  final List<Course> popularCourses =
+      CourseUtils.getPopularCourses(
+    courses: CoursesData.courses,
+    perType: 2,
+  );
 
   @override
   void initState() {
@@ -145,7 +103,7 @@ class _HomeCoursesState extends State<HomeCourses> {
 
               IgnorePointer(
                 child: _CardsLayer(
-                  courses: courses,
+                  courses: popularCourses,
                   page: _page,
                   cardWidth: cardWidth,
                   cardHeight: cardHeight,
@@ -155,15 +113,12 @@ class _HomeCoursesState extends State<HomeCourses> {
 
               // ==================================================
               // SWIPE ENGINE
-              //
-              // این PageView عمداً روی کارت‌هاست.
-              // خودش شفاف است و فقط Swipe را دریافت می‌کند.
               // ==================================================
 
               Positioned.fill(
                 child: PageView.builder(
                   controller: _pageController,
-                  itemCount: courses.length,
+                  itemCount: popularCourses.length,
                   physics:
                       const BouncingScrollPhysics(),
                   clipBehavior: Clip.none,

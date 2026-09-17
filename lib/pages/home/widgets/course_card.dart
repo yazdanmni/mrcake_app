@@ -189,35 +189,47 @@ class CourseCard extends StatelessWidget {
                       // ==================================================
                       // PRICE
                       // ==================================================
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.baseline,
-                        textBaseline: TextBaseline.alphabetic,
-                        children: [
-                          Text(
-                            _formatPrice(course.price),
-                            style: const TextStyle(
-                              fontFamily: 'Shabnam',
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.textPrimary,
-                              height: 1,
-                            ),
+                      if (_isFreeCourse(course.price))
+                        const Text(
+                          'رایگان',
+                          style: TextStyle(
+                            fontFamily: 'Shabnam',
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textPrimary,
+                            height: 1,
                           ),
-
-                          const SizedBox(width: 4),
-
-                          Text(
-                            course.currency,
-                            style: const TextStyle(
-                              fontFamily: 'Pinar',
-                              fontSize: 12,
-                              color: AppColors.textSecondary,
-                              height: 1,
+                        )
+                      else
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
+                          children: [
+                            Text(
+                              _formatPrice(course.price),
+                              style: const TextStyle(
+                                fontFamily: 'Shabnam',
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textPrimary,
+                                height: 1,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
+
+                            const SizedBox(width: 4),
+
+                            Text(
+                              course.currency,
+                              style: const TextStyle(
+                                fontFamily: 'Pinar',
+                                fontSize: 12,
+                                color: AppColors.textSecondary,
+                                height: 1,
+                              ),
+                            ),
+                          ],
+                        ),
                     ],
                   ),
                 ),
@@ -405,4 +417,10 @@ String _toPersianDigits(String value) {
   }
 
   return result;
+}
+
+bool _isFreeCourse(String value) {
+  final digits = value.replaceAll(',', '').replaceAll('٬', '').trim();
+
+  return digits == '0' || digits == '۰' || digits.isEmpty;
 }
