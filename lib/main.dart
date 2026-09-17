@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:mr_cake_project/pages/profile/profile_screen.dart';
 import 'package:mr_cake_project/pages/search/screen/search_screen.dart';
 
 void main() {
@@ -22,7 +23,7 @@ class MyApp extends StatelessWidget {
           home: child,
         );
       },
-      child: const SearchScreen(),
+      child: const ProfileScreen(),
     );
   }
 }
