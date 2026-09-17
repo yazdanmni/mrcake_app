@@ -746,71 +746,76 @@ class _GlassEditButton extends StatelessWidget {
     return Material(
       color: Colors.transparent,
 
-      child: InkWell(
-        onTap: onTap,
-
-        borderRadius: BorderRadius.circular(16.r),
-
-        child: Container(
-          width: 58.w,
-
-          height: 58.w,
-
-          decoration: BoxDecoration(
-            // =================================================================
-            // Glass Background
-            // =================================================================
-
-            color: Colors.white.withOpacity(.22),
-
-            // =================================================================
-            // Border
-            // =================================================================
-
-            border: Border.all(
-              color: Colors.white.withOpacity(.75),
-
-              width: 1.2,
+      child: Padding(
+        padding:  EdgeInsets.only(
+          top: 80.h,
+        ),
+        child: InkWell(
+          onTap: onTap,
+        
+          borderRadius: BorderRadius.circular(16.r),
+        
+          child: Container(
+            width: 58.w,
+        
+            height: 58.w,
+        
+            decoration: BoxDecoration(
+              // =================================================================
+              // Glass Background
+              // =================================================================
+        
+              color: Colors.white.withOpacity(.22),
+        
+              // =================================================================
+              // Border
+              // =================================================================
+        
+              border: Border.all(
+                color: Colors.white.withOpacity(.75),
+        
+                width: 1.2,
+              ),
+        
+              borderRadius: BorderRadius.circular(16.r),
+        
+              // =================================================================
+              // Shadow
+              // =================================================================
+        
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(.12),
+        
+                  blurRadius: 14.r,
+        
+                  offset: Offset(
+                    0,
+                    5.h,
+                  ),
+                ),
+        
+                BoxShadow(
+                  color: Colors.white.withOpacity(.18),
+        
+                  blurRadius: 5.r,
+        
+                  offset: Offset(
+                    0,
+                    -1.h,
+                  ),
+                ),
+              ],
             ),
-
-            borderRadius: BorderRadius.circular(16.r),
-
-            // =================================================================
-            // Shadow
-            // =================================================================
-
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(.12),
-
-                blurRadius: 14.r,
-
-                offset: Offset(
-                  0,
-                  5.h,
-                ),
+        
+            child: Center(
+              child: Icon(
+                Icons.edit_outlined,
+        
+                size: 29.sp,
+        
+                color: Colors.white,
               ),
-
-              BoxShadow(
-                color: Colors.white.withOpacity(.18),
-
-                blurRadius: 5.r,
-
-                offset: Offset(
-                  0,
-                  -1.h,
-                ),
-              ),
-            ],
-          ),
-
-          child: Center(
-            child: Icon(
-              Icons.edit_outlined,
-
-              size: 29.sp,
-
-              color: Colors.white,
             ),
           ),
         ),

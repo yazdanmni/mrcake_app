@@ -26,8 +26,8 @@ class ProfileHeader extends StatelessWidget {
         clipper: _HeaderBottomCurveClipper(),
         child: BackdropFilter(
           filter: ImageFilter.blur(
-            sigmaX: 18,
-            sigmaY: 18,
+            sigmaX: 9,
+            sigmaY: 9,
           ),
           child: Container(
             width: double.infinity,
