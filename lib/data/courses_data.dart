@@ -5,7 +5,7 @@ class CoursesData {
 
   static const List<Course> courses = [
     // =========================================================
-    // 1 — رایگان
+    // 1 — رایگان — کیک
     // =========================================================
 
     Course(
@@ -23,10 +23,11 @@ class CoursesData {
       studentsCount: 2450,
       type: CourseType.free,
       access: CourseAccess.free,
+      categoryIds: [1],
     ),
 
     // =========================================================
-    // 2 — رایگان
+    // 2 — رایگان — شیرینی
     // =========================================================
 
     Course(
@@ -44,10 +45,11 @@ class CoursesData {
       studentsCount: 1850,
       type: CourseType.free,
       access: CourseAccess.free,
+      categoryIds: [2],
     ),
 
     // =========================================================
-    // 3 — حرفه‌ای
+    // 3 — حرفه‌ای — کیک
     // =========================================================
 
     Course(
@@ -65,10 +67,11 @@ class CoursesData {
       studentsCount: 3200,
       type: CourseType.professional,
       access: CourseAccess.paid,
+      categoryIds: [1],
     ),
 
     // =========================================================
-    // 4 — حرفه‌ای
+    // 4 — حرفه‌ای — دسر + شیرینی
     // =========================================================
 
     Course(
@@ -86,10 +89,11 @@ class CoursesData {
       studentsCount: 2750,
       type: CourseType.professional,
       access: CourseAccess.paid,
+      categoryIds: [2, 3],
     ),
 
     // =========================================================
-    // 5 — حرفه‌ای
+    // 5 — حرفه‌ای — کیک
     // =========================================================
 
     Course(
@@ -107,10 +111,11 @@ class CoursesData {
       studentsCount: 4100,
       type: CourseType.professional,
       access: CourseAccess.paid,
+      categoryIds: [1],
     ),
 
     // =========================================================
-    // 6 — تک آموزشی / رایگان
+    // 6 — تک آموزشی / رایگان — خامه
     // =========================================================
 
     Course(
@@ -128,10 +133,11 @@ class CoursesData {
       studentsCount: 1650,
       type: CourseType.single,
       access: CourseAccess.free,
+      categoryIds: [5],
     ),
 
     // =========================================================
-    // 7 — تک آموزشی / پولی
+    // 7 — تک آموزشی / پولی — کیک + خامه
     // =========================================================
 
     Course(
@@ -149,10 +155,11 @@ class CoursesData {
       studentsCount: 980,
       type: CourseType.single,
       access: CourseAccess.paid,
+      categoryIds: [1, 5],
     ),
 
     // =========================================================
-    // 8 — تک آموزشی / پولی
+    // 8 — تک آموزشی / پولی — کیک
     // =========================================================
 
     Course(
@@ -170,10 +177,11 @@ class CoursesData {
       studentsCount: 1250,
       type: CourseType.single,
       access: CourseAccess.paid,
+      categoryIds: [1],
     ),
 
     // =========================================================
-    // 9 — تک آموزشی / رایگان
+    // 9 — تک آموزشی / رایگان — کیک
     // =========================================================
 
     Course(
@@ -191,10 +199,11 @@ class CoursesData {
       studentsCount: 2900,
       type: CourseType.single,
       access: CourseAccess.free,
+      categoryIds: [1],
     ),
 
     // =========================================================
-    // 10 — حرفه‌ای
+    // 10 — حرفه‌ای — شیرینی
     // =========================================================
 
     Course(
@@ -212,6 +221,24 @@ class CoursesData {
       studentsCount: 3600,
       type: CourseType.professional,
       access: CourseAccess.paid,
+      categoryIds: [2],
     ),
   ];
+
+  // =========================================================
+  // فیلتر دوره‌ها بر اساس دسته‌بندی
+  // null = همه
+  // =========================================================
+
+  static List<Course> coursesByCategory(int? categoryId) {
+    if (categoryId == null) {
+      return courses;
+    }
+
+    return courses
+        .where(
+          (course) => course.categoryIds.contains(categoryId),
+        )
+        .toList();
+  }
 }

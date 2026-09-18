@@ -1,14 +1,3 @@
-enum CourseType {
-  free,
-  professional,
-  single,
-}
-
-enum CourseAccess {
-  free,
-  paid,
-}
-
 class Course {
   final int id;
 
@@ -27,7 +16,30 @@ class Course {
 
   final int studentsCount;
 
+  /// دسته‌بندی موضوعی دوره
+  ///
+  /// 1 → کیک
+  /// 2 → شیرینی
+  /// 3 → دسر
+  /// 4 → نان
+  /// 5 → خامه
+  /// 6 → کروسان
+  /// 7 → کاکائو
+  ///
+  /// یک دوره می‌تواند در چند دسته قرار داشته باشد.
+  final List<int> categoryIds;
+
+  /// نوع نمایش دوره در سکشن‌ها
+  ///
+  /// free         → دوره‌های رایگان
+  /// professional → دوره‌های حرفه‌ای
+  /// single       → تک‌آموزشی
   final CourseType type;
+
+  /// دسترسی به دوره
+  ///
+  /// free → رایگان
+  /// paid → پولی
   final CourseAccess access;
 
   const Course({
@@ -42,6 +54,7 @@ class Course {
     required this.lessons,
     required this.duration,
     required this.studentsCount,
+    required this.categoryIds,
     required this.type,
     required this.access,
   });
@@ -84,10 +97,16 @@ class Course {
       duration:
           json['duration']?.toString() ?? '0',
 
-      studentsCount: int.tryParse(
-            json['students_count']?.toString() ?? '0',
-          ) ??
-          0,
+      studentsCount:
+          int.tryParse(
+                json['students_count']?.toString() ?? '0',
+              ) ??
+              0,
+
+      categoryIds:
+          _categoryIdsFromJson(
+            json['category_ids'],
+          ),
 
       type: _courseTypeFromJson(
         json['type']?.toString(),
@@ -102,7 +121,6 @@ class Course {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-
       'image': image,
       'title': title,
 
@@ -117,12 +135,14 @@ class Course {
 
       'price': price,
       'currency': currency,
-
       'lessons': lessons,
       'duration': duration,
 
       'students_count':
           studentsCount,
+
+      'category_ids':
+          categoryIds,
 
       'type':
           type.name,
@@ -130,6 +150,39 @@ class Course {
       'access':
           access.name,
     };
+  }
+
+  /// تبدیل category_ids دریافتی از JSON
+  /// به List<int>
+  static List<int> _categoryIdsFromJson(
+    dynamic value,
+  ) {
+    if (value is List) {
+      return value
+          .map(
+            (item) => int.tryParse(
+              item.toString(),
+            ),
+          )
+          .whereType<int>()
+          .where(
+            (id) => id > 0,
+          )
+          .toList();
+    }
+
+    // اگر API به‌جای آرایه فقط یک category_id فرستاد
+    final int? singleCategory =
+        int.tryParse(
+          value?.toString() ?? '',
+        );
+
+    if (singleCategory != null &&
+        singleCategory > 0) {
+      return [singleCategory];
+    }
+
+    return const [];
   }
 
   static CourseType _courseTypeFromJson(
@@ -160,4 +213,15 @@ class Course {
         return CourseAccess.free;
     }
   }
+}
+
+enum CourseType {
+  free,
+  professional,
+  single,
+}
+
+enum CourseAccess {
+  free,
+  paid,
 }

@@ -33,7 +33,7 @@ class ProfileScreen extends StatelessWidget {
             ),
             SizedBox(height: 20.h),
             ProfileQuickActionsGrid(),
-            SizedBox(height: 50.h),
+            SizedBox(height: 150.h),
           ],
         ),
       ),
