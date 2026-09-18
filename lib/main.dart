@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:mr_cake_project/pages/courses/course_categories_screen.dart';
-import 'package:mr_cake_project/pages/recipes/recipes_screen.dart';
-import 'package:mr_cake_project/pages/search/screen/search_screen.dart';
-import 'package:mr_cake_project/pages/teacher/teacher_screen.dart';
+import 'package:mr_cake_project/pages/courses/courses_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -25,7 +22,7 @@ class MyApp extends StatelessWidget {
           home: child,
         );
       },
-      child: const RecipesScreen(),
+      child: const CoursesScreen(),
     );
   }
 }

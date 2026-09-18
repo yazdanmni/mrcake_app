@@ -4,6 +4,7 @@ import 'package:mr_cake_project/core/theme/app_colors.dart';
 import 'package:mr_cake_project/data/categories_data.dart';
 import 'package:mr_cake_project/data/courses_data.dart';
 import 'package:mr_cake_project/models/course.dart';
+import 'package:mr_cake_project/pages/course_details/course_details_screen.dart';
 import 'package:mr_cake_project/pages/courses/widgets/course_section.dart';
 import 'package:mr_cake_project/pages/courses/widgets/courses_category.dart';
 import 'package:mr_cake_project/pages/courses/widgets/courses_header.dart';
@@ -67,11 +68,11 @@ class _CoursesScreenState extends State<CoursesScreen> {
                       // همه دوره‌ها
                       return;
                     }
-            
+
                     // فعلاً فقط برای تست
                     debugPrint('Category ID: ${category.id}');
                     debugPrint('Category Title: ${category.title}');
-            
+
                     // بعداً اینجا AJAX
                   },
                 ),
@@ -79,33 +80,39 @@ class _CoursesScreenState extends State<CoursesScreen> {
                   title: 'از اینجا شروع کن',
                   courses: freeCourses,
                   onCourseTap: (course) {
-                    // صفحه جزئیات
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => CourseDetailsScreen(course: course),
+                      ),
+                    );
                   },
-                  onViewAll: () {
-                    // همه دوره‌های رایگان
-                  },
+                  onViewAll: () {},
                 ),
-            
+
                 CourseSection(
                   title: 'حرفه‌ای شو',
                   courses: professionalCourses,
                   onCourseTap: (course) {
-                    // صفحه جزئیات
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => CourseDetailsScreen(course: course),
+                      ),
+                    );
                   },
-                  onViewAll: () {
-                    // همه دوره‌های حرفه‌ای
-                  },
+                  onViewAll: () {},
                 ),
-            
+
                 CourseSection(
                   title: 'تک آموزشی',
                   courses: singleCourses,
                   onCourseTap: (course) {
-                    // صفحه جزئیات
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => CourseDetailsScreen(course: course),
+                      ),
+                    );
                   },
-                  onViewAll: () {
-                    // همه تک‌آموزشی‌ها
-                  },
+                  onViewAll: () {},
                 ),
                 SizedBox(height: 25.h),
               ],
