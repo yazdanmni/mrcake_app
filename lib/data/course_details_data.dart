@@ -6,8 +6,7 @@ class CourseDetailsData {
   static const Map<int, CourseDetails> details = {
     1: CourseDetails(
       courseId: 1,
-      description:
-          'در این دوره از پایه با اصول پخت یک کیک اسفنجی حرفه‌ای آشنا می‌شوید و تمام نکات مهم برای داشتن یک کیک سبک، خوش‌طعم و با بافت مناسب را یاد می‌گیرید.',
+      description: 'در این دوره از پایه با اصول پخت یک کیک اسفنجی حرفه‌ای آشنا می‌شوید و تمام نکات مهم برای داشتن یک کیک سبک، خوش‌طعم و با بافت مناسب را یاد می‌گیرید.',
       introVideo:
           'https://flutter.github.io/assets-for-api-docs/assets/videos/bee.mp4',
       introImage:
@@ -21,14 +20,26 @@ class CourseDetailsData {
             CourseLesson(
               id: 1,
               title: 'بهترین نوع آرد',
-              video: '',
+              video: 'https://flutter.github.io/assets-for-api-docs/assets/videos/bee.mp4',
               duration: '08:20',
+               description: 'در این قسمت انواع آرد و کاربرد هرکدام را بررسی می‌کنیم و یاد می‌گیریم برای هر نوع کیک از چه آردی استفاده کنیم.',
+              ingredients: [
+                CourseIngredient(id: 1, name: 'آرد', amount: '250 گرم'),
+                CourseIngredient(id: 2, name: 'تخم مرغ', amount: '4 عدد'),
+                CourseIngredient(id: 3, name: 'شکر', amount: '180 گرم'),
+              ],
             ),
             CourseLesson(
               id: 2,
               title: 'انواع آرد و ملات',
               video: '',
               duration: '10:15',
+               description: 'در این قسمت انواع آرد و کاربرد هرکدام را بررسی می‌کنیم و یاد می‌گیریم برای هر نوع کیک از چه آردی استفاده کنیم.',
+              ingredients: [
+                CourseIngredient(id: 1, name: 'آرد', amount: '250 گرم'),
+                CourseIngredient(id: 2, name: 'تخم مرغ', amount: '4 عدد'),
+                CourseIngredient(id: 3, name: 'شکر', amount: '180 گرم'),
+              ],
             ),
           ],
         ),
@@ -42,12 +53,24 @@ class CourseDetailsData {
               title: 'تست خامه',
               video: '',
               duration: '12:30',
+               description: 'در این قسمت انواع آرد و کاربرد هرکدام را بررسی می‌کنیم و یاد می‌گیریم برای هر نوع کیک از چه آردی استفاده کنیم.',
+              ingredients: [
+                CourseIngredient(id: 1, name: 'آرد', amount: '250 گرم'),
+                CourseIngredient(id: 2, name: 'تخم مرغ', amount: '4 عدد'),
+                CourseIngredient(id: 3, name: 'شکر', amount: '180 گرم'),
+              ],
             ),
             CourseLesson(
               id: 4,
               title: 'فرم دهی خامه',
               video: '',
               duration: '14:10',
+               description: 'در این قسمت انواع آرد و کاربرد هرکدام را بررسی می‌کنیم و یاد می‌گیریم برای هر نوع کیک از چه آردی استفاده کنیم.',
+              ingredients: [
+                CourseIngredient(id: 1, name: 'آرد', amount: '250 گرم'),
+                CourseIngredient(id: 2, name: 'تخم مرغ', amount: '4 عدد'),
+                CourseIngredient(id: 3, name: 'شکر', amount: '180 گرم'),
+              ],
             ),
           ],
         ),
@@ -61,18 +84,36 @@ class CourseDetailsData {
               title: 'انتخاب قالب',
               video: '',
               duration: '09:40',
+               description: 'در این قسمت انواع آرد و کاربرد هرکدام را بررسی می‌کنیم و یاد می‌گیریم برای هر نوع کیک از چه آردی استفاده کنیم.',
+              ingredients: [
+                CourseIngredient(id: 1, name: 'آرد', amount: '250 گرم'),
+                CourseIngredient(id: 2, name: 'تخم مرغ', amount: '4 عدد'),
+                CourseIngredient(id: 3, name: 'شکر', amount: '180 گرم'),
+              ],
             ),
             CourseLesson(
               id: 6,
               title: 'آماده سازی قالب',
               video: '',
               duration: '11:20',
+               description: 'در این قسمت انواع آرد و کاربرد هرکدام را بررسی می‌کنیم و یاد می‌گیریم برای هر نوع کیک از چه آردی استفاده کنیم.',
+              ingredients: [
+                CourseIngredient(id: 1, name: 'آرد', amount: '250 گرم'),
+                CourseIngredient(id: 2, name: 'تخم مرغ', amount: '4 عدد'),
+                CourseIngredient(id: 3, name: 'شکر', amount: '180 گرم'),
+              ],
             ),
             CourseLesson(
               id: 7,
               title: 'خارج کردن از قالب',
               video: '',
               duration: '08:50',
+               description: 'در این قسمت انواع آرد و کاربرد هرکدام را بررسی می‌کنیم و یاد می‌گیریم برای هر نوع کیک از چه آردی استفاده کنیم.',
+              ingredients: [
+                CourseIngredient(id: 1, name: 'آرد', amount: '250 گرم'),
+                CourseIngredient(id: 2, name: 'تخم مرغ', amount: '4 عدد'),
+                CourseIngredient(id: 3, name: 'شکر', amount: '180 گرم'),
+              ],
             ),
           ],
         ),
@@ -86,39 +127,36 @@ class CourseDetailsData {
               title: 'نکات پخت و سرو',
               video: '',
               duration: '07:30',
+              description: 'در این قسمت انواع آرد و کاربرد هرکدام را بررسی می‌کنیم و یاد می‌گیریم برای هر نوع کیک از چه آردی استفاده کنیم.',
+              ingredients: [
+                CourseIngredient(id: 1, name: 'آرد', amount: '250 گرم'),
+                CourseIngredient(id: 2, name: 'تخم مرغ', amount: '4 عدد'),
+                CourseIngredient(id: 3, name: 'شکر', amount: '180 گرم'),
+              ],
             ),
             CourseLesson(
               id: 9,
               title: 'روش های نوین',
               video: '',
               duration: '06:45',
+               description: 'در این قسمت انواع آرد و کاربرد هرکدام را بررسی می‌کنیم و یاد می‌گیریم برای هر نوع کیک از چه آردی استفاده کنیم.',
+              ingredients: [
+                CourseIngredient(id: 1, name: 'آرد', amount: '250 گرم'),
+                CourseIngredient(id: 2, name: 'تخم مرغ', amount: '4 عدد'),
+                CourseIngredient(id: 3, name: 'شکر', amount: '180 گرم'),
+              ],
             ),
           ],
         ),
-      ],
-      ingredients: [
-        CourseIngredient(
-          id: 1,
-          name: 'آرد',
-          amount: '250 گرم',
-        ),
-        CourseIngredient(
-          id: 2,
-          name: 'تخم مرغ',
-          amount: '4 عدد',
-        ),
-        CourseIngredient(
-          id: 3,
-          name: 'شکر',
-          amount: '180 گرم',
-        ),
+      ], ingredients: [
+        CourseIngredient(id: 1, name: 'آرد', amount: '300 گرم'),
+        CourseIngredient(id: 2, name: 'کره', amount: '150 گرم'),
       ],
     ),
 
     2: CourseDetails(
       courseId: 2,
-      description:
-          'در این دوره اصول اولیه شیرینی‌پزی، آماده‌سازی مواد و نکات مهم پخت شیرینی را یاد می‌گیرید.',
+      description: 'در این دوره اصول اولیه شیرینی‌پزی، آماده‌سازی مواد و نکات مهم پخت شیرینی را یاد می‌گیرید.',
       introVideo:
           'https://flutter.github.io/assets-for-api-docs/assets/videos/bee.mp4',
       introImage:
@@ -134,12 +172,24 @@ class CourseDetailsData {
               title: 'معرفی مواد اولیه',
               video: '',
               duration: '08:30',
+               description: 'در این قسمت انواع آرد و کاربرد هرکدام را بررسی می‌کنیم و یاد می‌گیریم برای هر نوع کیک از چه آردی استفاده کنیم.',
+              ingredients: [
+                CourseIngredient(id: 1, name: 'آرد', amount: '250 گرم'),
+                CourseIngredient(id: 2, name: 'تخم مرغ', amount: '4 عدد'),
+                CourseIngredient(id: 3, name: 'شکر', amount: '180 گرم'),
+              ],
             ),
             CourseLesson(
               id: 11,
               title: 'انتخاب مواد مناسب',
               video: '',
               duration: '10:20',
+               description: 'در این قسمت انواع آرد و کاربرد هرکدام را بررسی می‌کنیم و یاد می‌گیریم برای هر نوع کیک از چه آردی استفاده کنیم.',
+              ingredients: [
+                CourseIngredient(id: 1, name: 'آرد', amount: '250 گرم'),
+                CourseIngredient(id: 2, name: 'تخم مرغ', amount: '4 عدد'),
+                CourseIngredient(id: 3, name: 'شکر', amount: '180 گرم'),
+              ],
             ),
           ],
         ),
@@ -153,27 +203,31 @@ class CourseDetailsData {
               title: 'دمای مناسب فر',
               video: '',
               duration: '12:10',
+              description: 'در این قسمت دمای مناسب فر برای پخت کیک را یاد می‌گیرید.',
+              ingredients: [
+                CourseIngredient(id: 1, name: 'آرد', amount: '250 گرم'),
+                CourseIngredient(id: 2, name: 'تخم مرغ', amount: '4 عدد'),
+                CourseIngredient(id: 3, name: 'شکر', amount: '180 گرم'),
+              ],
             ),
             CourseLesson(
               id: 13,
               title: 'زمان بندی پخت',
               video: '',
               duration: '09:40',
+              description: 'در این قسمت زمان بندی پخت کیک را یاد می‌گیرید.',
+              ingredients: [
+                CourseIngredient(id: 1, name: 'آرد', amount: '250 گرم'),
+                CourseIngredient(id: 2, name: 'تخم مرغ', amount: '4 عدد'),
+                CourseIngredient(id: 3, name: 'شکر', amount: '180 گرم'),
+              ],
             ),
           ],
         ),
       ],
       ingredients: [
-        CourseIngredient(
-          id: 10,
-          name: 'آرد',
-          amount: '300 گرم',
-        ),
-        CourseIngredient(
-          id: 11,
-          name: 'کره',
-          amount: '150 گرم',
-        ),
+        CourseIngredient(id: 10, name: 'آرد', amount: '300 گرم'),
+        CourseIngredient(id: 11, name: 'کره', amount: '150 گرم'),
       ],
     ),
   };

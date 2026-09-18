@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:mr_cake_project/pages/courses/courses_screen.dart';
+import 'package:mr_cake_project/pages/support/tickets_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -17,12 +17,9 @@ class MyApp extends StatelessWidget {
       minTextAdapt: true,
       splitScreenMode: true,
       builder: (context, child) {
-        return MaterialApp(
-          debugShowCheckedModeBanner: false,
-          home: child,
-        );
+        return MaterialApp(debugShowCheckedModeBanner: false, home: child);
       },
-      child: const CoursesScreen(),
+      child: TicketsScreen(),
     );
   }
 }
