@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mr_cake_project/core/network/remote_data.dart';
 import 'package:mr_cake_project/core/theme/app_colors.dart';
+import 'package:mr_cake_project/core/router/app_router.dart';
 import 'package:mr_cake_project/models/teacher_model.dart';
 import 'package:mr_cake_project/repositories/catalog_repository.dart';
 
@@ -59,8 +60,7 @@ class _TeachersListScreenState extends State<TeachersListScreen> {
       if (!mounted) return;
 
       setState(() {
-        // Filter for verified teachers
-        _teachers.addAll(newTeachers.data.where((teacher) => teacher.isVerified).toList());
+        _teachers.addAll(newTeachers.data);
         _currentPage++;
         _hasMoreTeachers = newTeachers.data.isNotEmpty;
       });
@@ -126,22 +126,24 @@ class _TeachersListScreenState extends State<TeachersListScreen> {
                       ),
                     ),
                   ),
-                ) else GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                padding: EdgeInsets.symmetric(horizontal: 25.w, vertical: 10.h),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2, // Two teachers per row
-                  crossAxisSpacing: 20.w,
-                  mainAxisSpacing: 20.h,
-                  mainAxisExtent: 220.h, // Adjust height as needed
+                )
+              else
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  padding: EdgeInsets.symmetric(horizontal: 25.w, vertical: 10.h),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 20.w,
+                    mainAxisSpacing: 20.h,
+                    mainAxisExtent: 220.h,
+                  ),
+                  itemCount: _teachers.length,
+                  itemBuilder: (BuildContext context, int index) {
+                    final teacher = _teachers[index];
+                    return _buildTeacherCard(teacher);
+                  },
                 ),
-                itemCount: _teachers.length,
-                itemBuilder: (BuildContext context, int index) {
-                  final teacher = _teachers[index];
-                  return _buildTeacherCard(teacher);
-                },
-              ),
               if (_isLoadingMore)
                 Padding(
                   padding: EdgeInsets.all(16.h),
@@ -157,8 +159,10 @@ class _TeachersListScreenState extends State<TeachersListScreen> {
   Widget _buildTeacherCard(Teacher teacher) {
     return GestureDetector(
       onTap: () {
-        // Navigate to teacher detail screen
-        // AppRouter.toTeacherDetail(context, teacherId: teacher.id);
+        AppRouter.toTeacherDetail(
+          context,
+          teacherId: teacher.id,
+        );
       },
       child: Container(
         decoration: BoxDecoration(
@@ -217,17 +221,29 @@ class _TeachersListScreenState extends State<TeachersListScreen> {
               ),
             ),
             SizedBox(height: 10.h),
-            Text(
-              teacher.fullName,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontFamily: 'bShabnam',
-                fontSize: 16.sp,
-                color: AppColors.textPrimary,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (teacher.isVerified)
+              Icon(
+                Icons.verified_rounded,
+                size: 18.sp,
+                color: Colors.blue,
               ),
+                Text(
+                  'استاد ${teacher.lastName}',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'bShabnam',
+                    fontSize: 16.sp,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                
+              ],
             ),
             if (teacher.expertise.isNotEmpty)
-              Text(
+            Text(
                 teacher.expertise,
                 textAlign: TextAlign.center,
                 style: TextStyle(
@@ -236,13 +252,17 @@ class _TeachersListScreenState extends State<TeachersListScreen> {
                   color: AppColors.textSecondary,
                 ),
               ),
-            SizedBox(height: 5.h),
-            if (teacher.isVerified)
-              Icon(
-                Icons.verified_rounded,
-                size: 18.sp,
-                color: Colors.blue,
+              Text(
+                teacher.about.characters.take(40).toString() + (teacher.about.length > 10 ? '...' : ''),
+                textAlign: TextAlign.center,
+                textDirection: TextDirection.rtl,
+                style: TextStyle(
+                  fontFamily: 'shabnam',
+                  fontSize: 14.sp,
+                  color: AppColors.textSecondary,
+                ),
               ),
+            
           ],
         ),
       ),

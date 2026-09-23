@@ -1,21 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:mr_cake_project/core/router/app_router.dart';
+import 'package:mr_cake_project/core/utils/app_feedback.dart';
 import 'package:mr_cake_project/models/teacher_model.dart';
 import 'package:mr_cake_project/pages/teacher/widgets/teacher_portfolio_viewer.dart';
 
 import '../../core/network/remote_data.dart';
 import '../../core/theme/app_colors.dart';
-import '../../core/utils/app_feedback.dart';
-import '../../data/teacher_data.dart';
 import '../../repositories/catalog_repository.dart';
 import 'widgets/teacher_portfolio_grid.dart';
 
 class TeacherScreen extends StatefulWidget {
-  final int teacherId;
+  final int? teacherId;
 
   const TeacherScreen({
     super.key,
-    required this.teacherId,
+    this.teacherId,
   });
 
   @override
@@ -33,9 +33,6 @@ class _TeacherScreenState extends State<TeacherScreen> {
   @override
   void initState() {
     super.initState();
-
-    _teacher = TeacherData.getTeacherById(widget.teacherId);
-
     _load();
   }
 
@@ -44,15 +41,20 @@ class _TeacherScreenState extends State<TeacherScreen> {
       label: 'teacher.detail',
       seed: _teacher,
       fetch: () async {
-        final teacher = await CatalogRepository.instance.fetchTeacher(
-          widget.teacherId,
-        );
+        Teacher? teacher;
+        if (widget.teacherId != null) {
+          teacher = await CatalogRepository.instance.fetchTeacher(
+            widget.teacherId!,
+          );
+        } else {
+          teacher = await CatalogRepository.instance.fetchSingleVerifiedTeacher();
+        }
 
         if (teacher == null) return null;
 
         // نمونه‌کارها از یک اندپوینت جداگانه می‌آیند.
         final portfolio = await CatalogRepository.instance
-            .fetchTeacherPortfolio(teacherId: widget.teacherId);
+            .fetchTeacherPortfolio(teacherId: teacher.id); // Use teacher.id here
 
         return portfolio.isEmpty ? teacher : teacher.withPortfolio(portfolio);
       },
@@ -76,7 +78,14 @@ class _TeacherScreenState extends State<TeacherScreen> {
         body: SafeArea(
           child: Center(
             child: _isLoading
-                ? const InlineLoader(color: AppColors.primary)
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.primary,
+                    ),
+                  )
                 : Text(
                     'صفحه استاد در دسترس نیست',
                     style: TextStyle(
@@ -260,15 +269,29 @@ class _TeacherScreenState extends State<TeacherScreen> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            'استاد ${teacher.fullName}',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontFamily: 'Shabnam',
-              fontSize: 20.sp,
-              color: AppColors.textSecondary,
-            ),
-          ),
+         RichText(
+  textAlign: TextAlign.center,
+  text: TextSpan(
+    children: [
+      TextSpan(
+        text: 'استاد ',
+        style: TextStyle(
+          fontFamily: 'BShabnam',
+          fontSize: 16.sp,
+          color: AppColors.textPrimary,
+        ),
+      ),
+      TextSpan(
+        text: teacher.fullName,
+        style: TextStyle(
+          fontFamily: 'shabnam',
+          fontSize: 20.sp,
+          color: AppColors.textSecondary,
+        ),
+      ),
+    ],
+  ),
+),
 
           if (teacher.isVerified) ...[
             SizedBox(width: 7.w),
@@ -300,7 +323,7 @@ class _TeacherScreenState extends State<TeacherScreen> {
           ),
           _buildStatBox(
             title: 'سابقه',
-            value: '${teacher.experienceYears} سال',
+            value: '+ ${teacher.experienceYears}',
           ),
           _buildStatBox(
             title: 'تعداد هنرجو',
@@ -401,6 +424,7 @@ class _TeacherScreenState extends State<TeacherScreen> {
                 Text(
                   teacher.about,
                   textAlign: TextAlign.justify,
+                  textDirection: TextDirection.rtl,
                   maxLines: _showFullAbout ? null : 5,
                   overflow: _showFullAbout
                       ? TextOverflow.visible
@@ -460,7 +484,20 @@ class _TeacherScreenState extends State<TeacherScreen> {
           color: AppColors.primary,
           borderRadius: BorderRadius.circular(16.r),
           child: InkWell(
-            onTap: () {},
+            onTap: () {
+              if (_teacher != null) {
+                AppRouter.toTeacherCourses(
+                  context,
+                  _teacher!.id,
+                  _teacher!.fullName,
+                );
+              } else {
+                AppFeedback.showError(
+                  context: context,
+                  message: 'اطلاعات استاد در دسترس نیست.',
+                );
+              }
+            },
             borderRadius:
                 BorderRadius.circular(16.r),
             child: Center(

@@ -82,6 +82,8 @@ class AppFeedback {
         ),
       );
   }
+
+  static void showError({required BuildContext context, required String message}) {}
 }
 
 /// Small spinner that matches the brand and keeps the exact same footprint as

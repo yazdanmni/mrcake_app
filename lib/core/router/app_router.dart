@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mr_cake_project/pages/teacher/teacher_screen.dart';
 
 import '../../navigation/main_bottom_navigation.dart';
 import '../../pages/authpage/change_password_screen.dart';
@@ -8,6 +9,7 @@ import '../../pages/authpage/login_password_screen.dart';
 import '../../pages/authpage/login_screen.dart';
 import '../../pages/splash/splash_screen.dart';
 import '../../pages/support/tickets_screen.dart';
+import '../../pages/teacher/teacher_courses_screen.dart';
 import '../../pages/teacher/teachers_list_screen.dart';
 import '../../repositories/auth_repository.dart';
 import '../../pages/courses/courses_screen.dart';
@@ -25,10 +27,12 @@ class AppRoutes {
   static const String completeProfile = '/register/complete-profile';
   static const String changePassword = '/account/change-password';
   static const String main = '/main';
-  static const String support = '/support'; // New route for support page
+  static const String support = '/support';
   static const String teachers = '/teachers';
+  static const String teacherDetail = '/teacher/detail';
   static const String courses = '/courses';
   static const String courseCategories = '/course-categories';
+  static const String teacherCourses = '/teachers/courses';
 }
 
 /// The single place where the auth flow decides which screen comes next.
@@ -63,6 +67,11 @@ class AppRouter {
   }
 
   // ---------------------------------------------------------------------------
+  static Future<void> toTeacherCourses(BuildContext context, int teacherId, String teacherName) => _push(
+        context,
+        TeacherCoursesScreen(teacherId: teacherId, teacherName: teacherName),
+        AppRoutes.teacherCourses,
+      );
   // Splash
   // ---------------------------------------------------------------------------
 
@@ -157,6 +166,15 @@ class AppRouter {
         context,
         const TeachersListScreen(),
         AppRoutes.teachers,
+      );
+
+  static Future<void> toTeacherDetail(
+    BuildContext context, {
+    int? teacherId,
+  }) => _push(
+        context,
+        TeacherScreen(teacherId: teacherId),
+        AppRoutes.teacherDetail,
       );
 
   // ---------------------------------------------------------------------------

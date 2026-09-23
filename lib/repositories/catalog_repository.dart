@@ -10,6 +10,7 @@ import '../models/enrollment.dart';
 import '../models/explore_video.dart';
 import '../models/recipe.dart';
 import '../models/teacher_model.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'profile_repository.dart';
 
 /// A DRF page (`{count, next, previous, results}`) or a plain list, normalised.
@@ -177,14 +178,16 @@ class CatalogRepository {
     String? search,
     int? categoryId,
     String? ordering,
+    int? teacherId,
   }) => _page(
     ApiEndpoints.courses,
     query: {
       'page': page,
-      'page_size': ?pageSize,
+      if (pageSize != null) 'page_size': pageSize,
       if (search != null && search.isNotEmpty) 'search': search,
-      'category': ?categoryId,
-      'ordering': ?ordering,
+      if (categoryId != null) 'category': categoryId,
+      if (ordering != null && ordering.isNotEmpty) 'ordering': ordering,
+      if (teacherId != null) 'teacher': teacherId,
     },
   );
 
@@ -195,6 +198,7 @@ class CatalogRepository {
     String? search,
     int? categoryId,
     String? ordering,
+    int? teacherId,
   }) async {
     final result = await fetchCoursePage(
       page: page,
@@ -294,7 +298,7 @@ class CatalogRepository {
   /// `GET /api/v1/courses/chapters/?course={id}` -> page of `Chapter`
   Future<PagedResult> fetchChapterPage({int? courseId}) => _page(
     ApiEndpoints.coursesChapters,
-    query: {'course': ?courseId},
+    query: {'course': courseId},
   );
 
   /// Typed chapters, each carrying its lessons when the backend inlines them.
@@ -315,7 +319,7 @@ class CatalogRepository {
   /// `GET /api/v1/courses/lessons/?chapter={id}` -> page of `Lesson`
   Future<PagedResult> fetchLessonPage({int? chapterId, int? courseId}) => _page(
     ApiEndpoints.coursesLessons,
-    query: {'chapter': ?chapterId, 'course': ?courseId},
+    query: {'chapter': chapterId, 'course': courseId},
   );
 
   /// Typed lessons for one chapter.
@@ -368,7 +372,7 @@ class CatalogRepository {
   /// `GET /api/v1/courses/reviews/?course={id}` -> page of `CourseReview`
   Future<PagedResult> fetchReviews({int? courseId, int page = 1}) => _page(
     ApiEndpoints.coursesReviews,
-    query: {'course': ?courseId, 'page': page},
+    query: {'course': courseId, 'page': page},
   );
 
   /// `POST /api/v1/courses/reviews/` (auth)
@@ -482,7 +486,7 @@ class CatalogRepository {
     () async {
       final result = await _page(
         ApiEndpoints.contentTeacherPortfolio,
-        query: {'page': page, 'teacher': ?teacherId},
+        query: {'page': page, 'teacher': teacherId},
       );
 
       final items = result.map(TeacherPortfolioItem.fromJson);
@@ -511,6 +515,21 @@ class CatalogRepository {
           return result.map(Teacher.fromJson);
         },
       );
+
+  /// `GET /api/v1/accounts/teachers/` -> page of `TeacherProfilePublic`
+  /// Returns the single verified teacher.
+  /// Assumes only one teacher is verified in the system.
+  Future<Teacher?> fetchSingleVerifiedTeacher() async {
+    final allTeachers = await fetchTeachers(); // Fetch all teachers
+    try {
+      return allTeachers.firstWhere((teacher) => teacher.isVerified);
+    } catch (e) {
+      // No verified teacher found or multiple found, handle as per requirement.
+      // For now, return null if none found, or log if multiple found.
+      print('No single verified teacher found: $e'); // Replace with proper logging
+      return null;
+    }
+  }
 
   /// `GET /api/v1/accounts/teachers/{id}/`
   Future<Teacher?> fetchTeacher(int id) =>
@@ -586,7 +605,7 @@ class CatalogRepository {
     bool cache = true,
   }) async {
     Future<List<CategoryModel>> load() async {
-      final result = await _page(path, query: {'page': ?page});
+      final result = await _page(path, query: {'page': page});
       return result.map(CategoryModel.fromJson);
     }
 
@@ -681,3 +700,5 @@ class CatalogRepository {
 }
 
 enum _HttpMethod { get, post }
+
+final catalogRepositoryProvider = Provider((ref) => CatalogRepository.instance);
