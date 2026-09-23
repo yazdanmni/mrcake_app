@@ -1,7 +1,8 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:mr_cake_project/data/courses_data.dart';
+import 'package:mr_cake_project/core/network/remote_data.dart';
+import 'package:mr_cake_project/repositories/catalog_repository.dart';
 import 'package:mr_cake_project/utils/course_utils.dart';
 
 import '../../models/course.dart';
@@ -24,16 +25,8 @@ class _HomeCoursesState extends State<HomeCourses> {
 
   double _page = 1.0;
 
-  // ================================================================
-  // POPULAR COURSES
-  // از هر دسته 2 دوره با بیشترین تعداد هنرجو
-  // ================================================================
-
-  final List<Course> popularCourses =
-      CourseUtils.getPopularCourses(
-    courses: CoursesData.courses,
-    perType: 2,
-  );
+  /// Seed data is rendered immediately, then replaced by the backend answer.
+  List<Course> _courses = const [];
 
   @override
   void initState() {
@@ -45,6 +38,28 @@ class _HomeCoursesState extends State<HomeCourses> {
     );
 
     _pageController.addListener(_pageListener);
+
+    _load();
+  }
+
+  // ================================================================
+  // POPULAR COURSES
+  // از هر دسته 2 دوره با بیشترین تعداد هنرجو
+  // ================================================================
+
+  List<Course> get popularCourses => CourseUtils.getPopularCourses(
+    courses: _courses,
+    perType: 2,
+  );
+
+  Future<void> _load() async {
+    final result = await RemoteLoader.list<Course>(
+      label: 'home.popular',
+      fetch: CatalogRepository.instance.fetchBestSellingCourses,
+    );
+
+    if (!mounted) return;
+    setState(() => _courses = result.data);
   }
 
   void _pageListener() {
@@ -76,6 +91,12 @@ class _HomeCoursesState extends State<HomeCourses> {
 
   @override
   Widget build(BuildContext context) {
+    final courses = popularCourses;
+
+    if (courses.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return LayoutBuilder(
       builder: (
         BuildContext context,
@@ -103,7 +124,7 @@ class _HomeCoursesState extends State<HomeCourses> {
 
               IgnorePointer(
                 child: _CardsLayer(
-                  courses: popularCourses,
+                  courses: courses,
                   page: _page,
                   cardWidth: cardWidth,
                   cardHeight: cardHeight,
@@ -118,7 +139,7 @@ class _HomeCoursesState extends State<HomeCourses> {
               Positioned.fill(
                 child: PageView.builder(
                   controller: _pageController,
-                  itemCount: popularCourses.length,
+                  itemCount: courses.length,
                   physics:
                       const BouncingScrollPhysics(),
                   clipBehavior: Clip.none,

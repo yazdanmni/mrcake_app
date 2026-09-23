@@ -1,8 +1,19 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:mr_cake_project/pages/support/tickets_screen.dart';
-
+import 'package:mr_cake_project/core/app_config.dart';
+import 'package:mr_cake_project/core/network/media_host_overrides.dart';
+import 'package:mr_cake_project/pages/splash/splash_screen.dart';
+  
 void main() {
+  // Must run before anything creates an HttpClient (i.e. before the first
+  // `Image.network`). Off by default — see the class docs for why, and what the
+  // real server-side fix is.
+  if (AppConfig.allowInsecureMediaHost) {
+    HttpOverrides.global = MediaHostHttpOverrides();
+  }
+
   runApp(const MyApp());
 }
 
@@ -17,9 +28,16 @@ class MyApp extends StatelessWidget {
       minTextAdapt: true,
       splitScreenMode: true,
       builder: (context, child) {
-        return MaterialApp(debugShowCheckedModeBanner: false, home: child);
+        return MaterialApp(
+          debugShowCheckedModeBanner: false,
+          title: 'مستر کیک',
+          // The splash screen is always the entry point. It restores the saved
+          // session and then routes to the login screen or to the main
+          // navigation (see `AppRouter`).
+          home: child,
+        );
       },
-      child: TicketsScreen(),
+      child: const SplashScreen(),
     );
   }
 }

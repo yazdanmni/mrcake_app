@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import '../../../core/network/remote_data.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../data/courses_data.dart';
-import '../../../data/enrollments_data.dart';
 import '../../../models/course.dart';
 import '../../../models/enrollment.dart';
+import '../../../repositories/catalog_repository.dart';
 
-class ProfileMyCoursesSection extends StatelessWidget {
+class ProfileMyCoursesSection extends StatefulWidget {
   final int userId;
 
   final VoidCallback? onViewAll;
@@ -22,32 +22,78 @@ class ProfileMyCoursesSection extends StatelessWidget {
     this.onCourseTap,
   });
 
+  @override
+  State<ProfileMyCoursesSection> createState() =>
+      _ProfileMyCoursesSectionState();
+}
+
+class _ProfileMyCoursesSectionState extends State<ProfileMyCoursesSection> {
+  late List<Enrollment> _enrollments = const [];
+  List<Course> _courses = const [];
+
+  @override
+  void initState() {
+    super.initState();
+
+    _load();
+  }
+
+  Future<void> _load() async {
+    final enrollmentsRequest = RemoteLoader.list<Enrollment>(
+      label: 'profile.enrollments',
+      fetch: CatalogRepository.instance.fetchEnrollments,
+    );
+
+    final coursesRequest = RemoteLoader.list<Course>(
+      label: 'profile.courses',
+      fetch: CatalogRepository.instance.fetchCourses,
+    );
+
+    final enrollments = await enrollmentsRequest;
+    final courses = await coursesRequest;
+
+    if (!mounted) return;
+
+    setState(() {
+      _enrollments = enrollments.data;
+      _courses = courses.data;
+    });
+  }
+
   // ================================================================
   // GET USER COURSES
   // ================================================================
 
   List<_UserCourseItem> _getUserCourses() {
-    final enrollments = EnrollmentsData.getByUserId(userId);
-
     final List<_UserCourseItem> result = [];
 
-    for (final enrollment in enrollments) {
-      Course? course;
+    for (final enrollment in _enrollments) {
+      // بک‌اند دوره را همراه ثبت‌نام می‌فرستد؛ در غیر این صورت از لیست
+      // دوره‌ها پیدا می‌شود.
+      final nested = enrollment.course;
 
-      for (final item in CoursesData.courses) {
-        if (item.id == enrollment.courseId) {
-          course = item;
-          break;
-        }
-      }
-
-      if (course != null) {
+      if (nested != null) {
         result.add(
           _UserCourseItem(
-            course: course,
+            course: nested,
             enrollment: enrollment,
           ),
         );
+
+        continue;
+      }
+
+      for (final item in _courses) {
+        if (item.id == enrollment.courseId) {
+          result.add(
+            _UserCourseItem(
+              course: item,
+              enrollment: enrollment,
+            ),
+          );
+
+          break;
+        }
       }
     }
 
@@ -107,7 +153,7 @@ class ProfileMyCoursesSection extends StatelessWidget {
 
               if (userCourses.isNotEmpty)
                 GestureDetector(
-                  onTap: onViewAll,
+                  onTap: widget.onViewAll,
                   behavior: HitTestBehavior.opaque,
                   child: Container(
                     width: 95.w,
@@ -149,7 +195,7 @@ class ProfileMyCoursesSection extends StatelessWidget {
           ),
           child: userCourses.isEmpty
               ? _EmptyMyCourses(
-                  onGoToCourses: onGoToCourses,
+                  onGoToCourses: widget.onGoToCourses,
                 )
               : Column(
                   children: userCourses
@@ -161,7 +207,7 @@ class ProfileMyCoursesSection extends StatelessWidget {
                           child: _MyCourseCard(
                             item: item,
                             onTap: () {
-                              onCourseTap?.call(
+                              widget.onCourseTap?.call(
                                 item.course,
                               );
                             },
@@ -224,7 +270,7 @@ class _EmptyMyCourses extends StatelessWidget {
             height: 52.w,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: AppColors.primary.withOpacity(0.10),
+              color: AppColors.primary.withValues(alpha: 0.10),
             ),
             child: Icon(
               Icons.menu_book_outlined,

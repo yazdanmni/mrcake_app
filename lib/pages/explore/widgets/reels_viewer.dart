@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../core/theme/app_colors.dart';
@@ -410,11 +411,11 @@ class _ReelItemState extends State<_ReelItem> {
     return Container(
       color: Colors.black,
       alignment: Alignment.center,
-      child: const SizedBox(
-        width: 30,
-        height: 30,
+      child: SizedBox(
+        width: 30.w,
+        height: 30.w,
         child: CircularProgressIndicator(
-          strokeWidth: 2,
+          strokeWidth: 2.w,
           color: Colors.white,
         ),
       ),
@@ -425,67 +426,68 @@ class _ReelItemState extends State<_ReelItem> {
     return Container(
       color: Colors.black,
       alignment: Alignment.center,
-      padding: const EdgeInsets.symmetric(
-        horizontal: 25,
+      padding: EdgeInsets.symmetric(
+        horizontal: 25.w,
       ),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
+            Icon(
               Icons.error_outline_rounded,
               color: Colors.white,
-              size: 48,
+              size: 48.sp,
             ),
-            const SizedBox(height: 15),
-            const Text(
+            SizedBox(height: 15.h),
+            Text(
               'پخش ویدیو با مشکل مواجه شد',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontFamily: 'PinarB',
-                fontSize: 17,
+                fontSize: 17.sp,
                 color: Colors.white,
               ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12.h),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(13),
+              padding: EdgeInsets.all(13.w),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.06),
-                borderRadius: BorderRadius.circular(12),
+                color: Colors.white.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(12.r),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.12),
+                  color: Colors.white.withValues(alpha: 0.12),
+                  width: 0.7.w,
                 ),
               ),
               child: SelectableText(
                 _errorMessage.isEmpty ? 'خطای نامشخص' : _errorMessage,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'Shabnam',
-                  fontSize: 10,
+                  fontSize: 10.sp,
                   color: Colors.white70,
                   height: 1.7,
                 ),
               ),
             ),
-            const SizedBox(height: 18),
+            SizedBox(height: 18.h),
             GestureDetector(
               onTap: _retryVideo,
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 11,
+                padding: EdgeInsets.symmetric(
+                  horizontal: 24.w,
+                  vertical: 11.h,
                 ),
                 decoration: BoxDecoration(
                   color: AppColors.primary,
-                  borderRadius: BorderRadius.circular(11),
+                  borderRadius: BorderRadius.circular(11.r),
                 ),
                 child: Text(
                   _isRetrying ? 'در حال تلاش...' : 'تلاش مجدد',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: 'bShabnam',
-                    fontSize: 13,
+                    fontSize: 13.sp,
                     color: Colors.white,
                   ),
                 ),
@@ -502,7 +504,7 @@ class _ReelItemState extends State<_ReelItem> {
       top: 0,
       left: 0,
       right: 0,
-      height: 130,
+      height: 130.h,
       child: IgnorePointer(
         child: DecoratedBox(
           decoration: BoxDecoration(
@@ -510,7 +512,7 @@ class _ReelItemState extends State<_ReelItem> {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Colors.black.withOpacity(0.55),
+                Colors.black.withValues(alpha: 0.55),
                 Colors.transparent,
               ],
             ),
@@ -525,7 +527,7 @@ class _ReelItemState extends State<_ReelItem> {
       bottom: 0,
       left: 0,
       right: 0,
-      height: 260,
+      height: 260.h,
       child: IgnorePointer(
         child: DecoratedBox(
           decoration: BoxDecoration(
@@ -533,8 +535,8 @@ class _ReelItemState extends State<_ReelItem> {
               begin: Alignment.bottomCenter,
               end: Alignment.topCenter,
               colors: [
-                Colors.black.withOpacity(0.82),
-                Colors.black.withOpacity(0.25),
+                Colors.black.withValues(alpha: 0.82),
+                Colors.black.withValues(alpha: 0.25),
                 Colors.transparent,
               ],
             ),
@@ -546,24 +548,24 @@ class _ReelItemState extends State<_ReelItem> {
 
   Widget _buildCloseButton() {
     return Positioned(
-      top: MediaQuery.paddingOf(context).top + 12,
-      left: 18,
+      top: MediaQuery.paddingOf(context).top + 12.h,
+      left: 18.w,
       child: GestureDetector(
         onTap: () {
           Navigator.of(context).pop();
         },
         child: Container(
-          width: 40,
-          height: 40,
+          width: 40.w,
+          height: 40.w,
           decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.35),
+            color: Colors.black.withValues(alpha: 0.35),
             shape: BoxShape.circle,
           ),
           alignment: Alignment.center,
-          child: const Icon(
+          child: Icon(
             Icons.close_rounded,
             color: Colors.white,
-            size: 24,
+            size: 24.sp,
           ),
         ),
       ),
@@ -577,17 +579,17 @@ class _ReelItemState extends State<_ReelItem> {
 
     return Center(
       child: Container(
-        width: 64,
-        height: 64,
+        width: 64.w,
+        height: 64.w,
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.45),
+          color: Colors.black.withValues(alpha: 0.45),
           shape: BoxShape.circle,
         ),
         alignment: Alignment.center,
-        child: const Icon(
+        child: Icon(
           Icons.play_arrow_rounded,
           color: Colors.white,
-          size: 40,
+          size: 40.sp,
         ),
       ),
     );
@@ -595,9 +597,9 @@ class _ReelItemState extends State<_ReelItem> {
 
   Widget _buildBottomInfo() {
     return Positioned(
-      left: 20,
-      right: 20,
-      bottom: 25,
+      left: 20.w,
+      right: 20.w,
+      bottom: 25.h,
       child: Directionality(
         textDirection: TextDirection.rtl,
         child: Column(
@@ -607,15 +609,15 @@ class _ReelItemState extends State<_ReelItem> {
             _InstructorChip(
               video: widget.video,
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12.h),
             Text(
               widget.video.title,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.right,
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: 'PinarB',
-                fontSize: 17,
+                fontSize: 17.sp,
                 color: Colors.white,
                 height: 1.3,
               ),
@@ -657,7 +659,7 @@ class _ReelItemState extends State<_ReelItem> {
           progress = progress.clamp(0.0, 1.0);
 
           return SizedBox(
-            height: 4,
+            height: 4.h,
             child: Align(
               alignment: Alignment.centerLeft,
               child: FractionallySizedBox(
@@ -686,19 +688,19 @@ class _InstructorChip extends StatelessWidget {
     return Align(
       alignment: Alignment.centerRight,
       child: Container(
-        constraints: const BoxConstraints(
-          maxWidth: 190,
+        constraints: BoxConstraints(
+          maxWidth: 190.w,
         ),
-        padding: const EdgeInsets.symmetric(
-          horizontal: 6,
-          vertical: 5,
+        padding: EdgeInsets.symmetric(
+          horizontal: 6.w,
+          vertical: 5.h,
         ),
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.32),
-          borderRadius: BorderRadius.circular(22),
+          color: Colors.black.withValues(alpha: 0.32),
+          borderRadius: BorderRadius.circular(22.r),
           border: Border.all(
-            color: Colors.white.withOpacity(0.35),
-            width: 0.7,
+            color: Colors.white.withValues(alpha: 0.35),
+            width: 0.7.w,
           ),
         ),
         child: Row(
@@ -708,8 +710,8 @@ class _InstructorChip extends StatelessWidget {
             ClipOval(
               child: Image.network(
                 video.instructorImage,
-                width: 34,
-                height: 34,
+                width: 34.w,
+                height: 34.w,
                 fit: BoxFit.cover,
                 errorBuilder: (
                   BuildContext context,
@@ -717,35 +719,35 @@ class _InstructorChip extends StatelessWidget {
                   StackTrace? stackTrace,
                 ) {
                   return Container(
-                    width: 34,
-                    height: 34,
+                    width: 34.w,
+                    height: 34.w,
                     color: AppColors.field,
                     alignment: Alignment.center,
-                    child: const Icon(
+                    child: Icon(
                       Icons.person_outline_rounded,
                       color: AppColors.textSecondary,
-                      size: 20,
+                      size: 20.sp,
                     ),
                   );
                 },
               ),
             ),
-            const SizedBox(width: 7),
+            SizedBox(width: 7.w),
             Flexible(
               child: Text(
                 'استاد ${video.instructorLastName}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.right,
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'bShabnam',
-                  fontSize: 14,
+                  fontSize: 14.sp,
                   color: Colors.white,
                   height: 1.1,
                 ),
               ),
             ),
-            const SizedBox(width: 6),
+            SizedBox(width: 6.w),
           ],
         ),
       ),

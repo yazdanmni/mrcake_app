@@ -6,64 +6,30 @@ import 'course_intro_video_card.dart';
 class CourseIntroVideos extends StatelessWidget {
   final ValueChanged<CourseIntroVideo>? onVideoTap;
 
+  /// Cards built from the backend course list. When it is `null` or empty the
+  /// bundled [defaultVideos] are used so the carousel is never blank.
+  final List<CourseIntroVideo>? videos;
+
   const CourseIntroVideos({
     super.key,
     this.onVideoTap,
+    this.videos,
   });
 
-  static const List<CourseIntroVideo> videos = [
-    CourseIntroVideo(
-      thumbnail:
-          'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=900',
-      title: 'آموزش جامع کیک‌های حرفه‌ای',
-      teacherFirstName: 'مریم',
-      teacherLastName: 'احمدی',
-      teacherAvatar:
-          'https://i.pravatar.cc/300?img=47',
-      duration: '08:42',
-      courseDuration: '120',
-      studentsCount: '600',
-    ),
-    CourseIntroVideo(
-      thumbnail:
-          'https://images.unsplash.com/photo-1551024506-0bccd828d307?w=900',
-      title: 'آموزش تخصصی دسر و شیرینی',
-      teacherFirstName: 'سارا',
-      teacherLastName: 'محمدی',
-      teacherAvatar:
-          'https://i.pravatar.cc/300?img=32',
-      duration: '06:18',
-      courseDuration: '95',
-      studentsCount: '420',
-    ),
-    CourseIntroVideo(
-      thumbnail:
-          'https://images.unsplash.com/photo-1486427944299-d1955d23e34d?w=900',
-      title: 'شیرینی‌های مدرن و خاص',
-      teacherFirstName: 'نگار',
-      teacherLastName: 'کریمی',
-      teacherAvatar:
-          'https://i.pravatar.cc/300?img=44',
-      duration: '10:25',
-      courseDuration: '105',
-      studentsCount: '850',
-    ),
-    CourseIntroVideo(
-      thumbnail:
-          'https://images.unsplash.com/photo-1571115177098-24ec42ed204d?w=900',
-      title: 'آموزش کیک‌های مجلسی و لوکس با تکنیک‌های حرفه‌ای',
-      teacherFirstName: 'الهام',
-      teacherLastName: 'رضایی',
-      teacherAvatar:
-          'https://i.pravatar.cc/300?img=49',
-      duration: '07:56',
-      courseDuration: '140',
-      studentsCount: '720',
-    ),
-  ];
+  List<CourseIntroVideo> get _items {
+    final remote = videos;
+    if (remote == null || remote.isEmpty) return const [];
+    return remote;
+  }
 
   @override
   Widget build(BuildContext context) {
+    final items = _items;
+
+    if (items.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return LayoutBuilder(
       builder: (
         BuildContext context,
@@ -83,7 +49,7 @@ class CourseIntroVideos extends StatelessWidget {
               padding: const EdgeInsets.symmetric(
                 horizontal: 25,
               ),
-              itemCount: videos.length,
+              itemCount: items.length,
               separatorBuilder: (
                 BuildContext context,
                 int index,
@@ -95,7 +61,7 @@ class CourseIntroVideos extends StatelessWidget {
                 int index,
               ) {
                 final CourseIntroVideo video =
-                    videos[index];
+                    items[index];
 
                 return SizedBox(
                   width: cardWidth,

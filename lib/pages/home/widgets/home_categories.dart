@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mr_cake_project/core/theme/app_colors.dart';
+import 'package:mr_cake_project/core/router/app_router.dart';
 
 import '../../../models/category_model.dart';
 
@@ -35,6 +36,7 @@ class HomeCategories extends StatelessWidget {
               title: 'بیشتر',
               isMore: true,
               onTap: () {
+                AppRouter.toCourseCategories(context);
               },
             );
           }
@@ -45,6 +47,7 @@ class HomeCategories extends StatelessWidget {
             title: category.title,
             image: category.image,
             onTap: () {
+              AppRouter.toCourseCategories(context, categoryId: category.id, categoryTitle: category.title);
             },
           );
         },
@@ -80,7 +83,7 @@ class _GlassCategoryCard extends StatelessWidget {
           ),
           child: Container(
             decoration: BoxDecoration(
-              color: AppColors.premium.withOpacity(0.20),
+              color: AppColors.premium.withValues(alpha: 0.20),
               borderRadius: BorderRadius.circular(18.r),
               border: Border.all(
                 color: AppColors.premium,

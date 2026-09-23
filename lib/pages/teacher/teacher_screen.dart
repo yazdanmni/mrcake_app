@@ -3,8 +3,11 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mr_cake_project/models/teacher_model.dart';
 import 'package:mr_cake_project/pages/teacher/widgets/teacher_portfolio_viewer.dart';
 
+import '../../core/network/remote_data.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/app_feedback.dart';
 import '../../data/teacher_data.dart';
+import '../../repositories/catalog_repository.dart';
 import 'widgets/teacher_portfolio_grid.dart';
 
 class TeacherScreen extends StatefulWidget {
@@ -20,7 +23,10 @@ class TeacherScreen extends StatefulWidget {
 }
 
 class _TeacherScreenState extends State<TeacherScreen> {
-  late final Teacher? teacher;
+  /// ابتدا داده آفلاین (اگر موجود باشد)، سپس پاسخ بک‌اند.
+  Teacher? _teacher;
+
+  bool _isLoading = true;
 
   bool _showFullAbout = false;
 
@@ -28,28 +34,57 @@ class _TeacherScreenState extends State<TeacherScreen> {
   void initState() {
     super.initState();
 
-    teacher = TeacherData.getAvailableTeacherPage(
-      widget.teacherId,
+    _teacher = TeacherData.getTeacherById(widget.teacherId);
+
+    _load();
+  }
+
+  Future<void> _load() async {
+    final result = await RemoteLoader.value<Teacher>(
+      label: 'teacher.detail',
+      seed: _teacher,
+      fetch: () async {
+        final teacher = await CatalogRepository.instance.fetchTeacher(
+          widget.teacherId,
+        );
+
+        if (teacher == null) return null;
+
+        // نمونه‌کارها از یک اندپوینت جداگانه می‌آیند.
+        final portfolio = await CatalogRepository.instance
+            .fetchTeacherPortfolio(teacherId: widget.teacherId);
+
+        return portfolio.isEmpty ? teacher : teacher.withPortfolio(portfolio);
+      },
     );
+
+    if (!mounted) return;
+
+    setState(() {
+      _teacher = result.data;
+      _isLoading = false;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final Teacher? currentTeacher = teacher;
+    final Teacher? currentTeacher = _teacher;
 
     if (currentTeacher == null) {
       return Scaffold(
         backgroundColor: AppColors.background,
         body: SafeArea(
           child: Center(
-            child: Text(
-              'صفحه استاد در دسترس نیست',
-              style: TextStyle(
-                fontFamily: 'Shabnam',
-                fontSize: 16.sp,
-                color: AppColors.textSecondary,
-              ),
-            ),
+            child: _isLoading
+                ? const InlineLoader(color: AppColors.primary)
+                : Text(
+                    'صفحه استاد در دسترس نیست',
+                    style: TextStyle(
+                      fontFamily: 'Shabnam',
+                      fontSize: 16.sp,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
           ),
         ),
       );
@@ -130,7 +165,7 @@ class _TeacherScreenState extends State<TeacherScreen> {
               width: 44.w,
               height: 44.w,
               decoration: BoxDecoration(
-                color: AppColors.premium.withOpacity(0.12),
+                color: AppColors.premium.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(14.r),
                 border: Border.all(
                   color: AppColors.premium,

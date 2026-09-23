@@ -18,6 +18,11 @@ class AppColors {
   static const Color accent = Color(0xFFEFAF82);
   static const Color premium = Color(0xFFC9A66B);
 
+  // Semantic — the red already used by the error snack bars and the splash
+  // failure state, and by the "log out" button on the profile screen.
+  static const Color error = Color(0xFFD9534F);
+  static const Color success = Color(0xFF4C9A6A);
+
   // Text
   static const Color textPrimary = Color(0xFF5B3930);
   static const Color textSecondary = Color(0xFF8A6659);

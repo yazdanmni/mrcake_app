@@ -3,38 +3,117 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import '../../core/network/remote_data.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/app_feedback.dart';
 import '../../models/recipe.dart';
 import '../../models/teacher_model.dart';
 import '../../data/recipes_data.dart';
 import '../../data/teacher_data.dart';
+import '../../repositories/catalog_repository.dart';
 
-class RecipeDetailScreen extends StatelessWidget {
+class RecipeDetailScreen extends StatefulWidget {
   final int recipeId;
 
   const RecipeDetailScreen({super.key, required this.recipeId});
 
   @override
+  State<RecipeDetailScreen> createState() => _RecipeDetailScreenState();
+}
+
+class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
+  /// ابتدا داده آفلاین، سپس پاسخ بک‌اند.
+  Recipe? _recipe;
+  Teacher? _teacher;
+
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _recipe = _findLocalRecipe(widget.recipeId);
+
+    _load();
+  }
+
+  Future<void> _load() async {
+    final recipeResult = await RemoteLoader.value<Recipe>(
+      label: 'recipe.detail',
+      seed: _recipe,
+      fetch: () => CatalogRepository.instance.fetchRecipe(widget.recipeId),
+    );
+
+    final recipe = recipeResult.data;
+
+    final teacher = recipe == null
+        ? null
+        : await _loadTeacher(recipe.teacherId);
+
+    if (!mounted) return;
+
+    setState(() {
+      _recipe = recipe;
+      _teacher = teacher;
+      _isLoading = false;
+    });
+  }
+
+  /// نویسنده رسپی با `created_by` (شناسه کاربر) می‌آید، پس ابتدا پروفایل استاد
+  /// و در صورت نبودن، خود کاربر خوانده می‌شود.
+  Future<Teacher?> _loadTeacher(int teacherId) async {
+    if (teacherId <= 0) return null;
+
+    final result = await RemoteLoader.value<Teacher>(
+      label: 'recipe.teacher',
+      seed: TeacherData.getTeacherById(teacherId),
+      fetch: () async {
+        final profile = await CatalogRepository.instance.fetchTeacher(
+          teacherId,
+        );
+
+        if (profile != null) return profile;
+
+        return CatalogRepository.instance.fetchTeacherByUserId(teacherId);
+      },
+    );
+
+    return result.data;
+  }
+
+  Recipe? _findLocalRecipe(int id) {
+    for (final Recipe recipe in RecipesData.recipes) {
+      if (recipe.id == id) {
+        return recipe;
+      }
+    }
+
+    return null;
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final Recipe? recipe = _findRecipe(recipeId);
+    final Recipe? recipe = _recipe;
 
     if (recipe == null) {
       return Scaffold(
         backgroundColor: AppColors.background,
         body: Center(
-          child: Text(
-            'رسپی پیدا نشد',
-            style: TextStyle(
-              fontFamily: 'bShabnam',
-              fontSize: 18.sp,
-              color: AppColors.textPrimary,
-            ),
-          ),
+          child: _isLoading
+              ? const InlineLoader(color: AppColors.primary)
+              : Text(
+                  'رسپی پیدا نشد',
+                  style: TextStyle(
+                    fontFamily: 'bShabnam',
+                    fontSize: 18.sp,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
         ),
       );
     }
 
-    final Teacher? teacher = TeacherData.getTeacherById(recipe.teacherId);
+    final Teacher? teacher = _teacher;
 
     return Directionality(
       textDirection: TextDirection.rtl,
@@ -124,16 +203,6 @@ class RecipeDetailScreen extends StatelessWidget {
       ),
     );
   }
-
-  Recipe? _findRecipe(int id) {
-    for (final Recipe recipe in RecipesData.recipes) {
-      if (recipe.id == id) {
-        return recipe;
-      }
-    }
-
-    return null;
-  }
 }
 
 // ============================================================================
@@ -190,7 +259,7 @@ class _RecipeHeaderImage extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withOpacity(0.24),
+            color: AppColors.primary.withValues(alpha: 0.24),
             blurRadius: 18,
             spreadRadius: 1,
             offset: const Offset(0, 6),
@@ -236,9 +305,9 @@ class _RecipeHeaderImage extends StatelessWidget {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.black.withOpacity(0.08),
+                    Colors.black.withValues(alpha: 0.08),
                     Colors.transparent,
-                    Colors.black.withOpacity(0.18),
+                    Colors.black.withValues(alpha: 0.18),
                   ],
                   stops: const [0.0, 0.45, 1.0],
                 ),
@@ -296,7 +365,7 @@ class _BackButton extends StatelessWidget {
         width: 44.w,
         height: 44.w,
         decoration: BoxDecoration(
-          color: AppColors.premium.withOpacity(0.12),
+          color: AppColors.premium.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(14.r),
           border: Border.all(color: AppColors.premium, width: 1.5.w),
         ),
@@ -332,15 +401,15 @@ class _TeacherCard extends StatelessWidget {
           child: Container(
             padding: EdgeInsets.symmetric(horizontal: 1.w),
             decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.30),
+              color: AppColors.primary.withValues(alpha: 0.30),
               borderRadius: BorderRadius.circular(18.5.r),
               border: Border.all(
-                color: Colors.white.withOpacity(0.45),
+                color: Colors.white.withValues(alpha: 0.45),
                 width: 0.7.w,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.primary.withOpacity(0.16),
+                  color: AppColors.primary.withValues(alpha: 0.16),
                   blurRadius: 10,
                   spreadRadius: 0,
                   offset: const Offset(0, 2),

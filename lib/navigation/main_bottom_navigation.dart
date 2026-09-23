@@ -389,7 +389,7 @@ class _MainBottomNavigationState extends State<MainBottomNavigation>
                                   BoxShadow(
                                     color: AppColors
                                         .premium
-                                        .withOpacity(
+                                        .withValues(alpha: 
                                       0.30,
                                     ),
                                     blurRadius: 17.r,

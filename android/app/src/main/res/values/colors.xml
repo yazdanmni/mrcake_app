@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Mr. Cake brand background (#FFF8F0). Used as the native window
+         background so the default white Flutter launch screen never shows:
+         the OS window is already the same colour as the Flutter splash. -->
+    <color name="splash_background">#FFF8F0</color>
+</resources>

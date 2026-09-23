@@ -6,16 +6,16 @@ import '../../../core/theme/app_colors.dart';
 class ProfileInfoSection extends StatelessWidget {
   const ProfileInfoSection({
     super.key,
-    this.username = 'username',
-    this.email = 'example@email.com',
+    this.username,
+    this.email,
     this.onEditEmail,
   });
 
-  /// بعداً از API دریافت می‌شود.
-  final String username;
+  /// نام کاربری واقعی. اگر `null` باشد همان مقدار نمایشی قبلی نشان داده می‌شود.
+  final String? username;
 
-  /// بعداً از API دریافت می‌شود.
-  final String email;
+  /// ایمیل واقعی کاربر.
+  final String? email;
 
   /// بعداً به API درخواست ویرایش ایمیل متصل می‌شود.
   final VoidCallback? onEditEmail;
@@ -33,7 +33,7 @@ class ProfileInfoSection extends StatelessWidget {
 
           _InfoRow(
             title: 'نام کاربری',
-            value: username,
+            value: username ?? 'username',
             trailing: _StatusBox(
               text: 'قابل ویرایش نیست',
               icon: Icons.lock_outline_rounded,
@@ -48,7 +48,7 @@ class ProfileInfoSection extends StatelessWidget {
 
           _InfoRow(
             title: 'ایمیل',
-            value: email,
+            value: email ?? 'example@email.com',
             trailing: _ActionButton(
               text: 'درخواست ویرایش',
               icon: Icons.edit_outlined,
@@ -205,10 +205,10 @@ class _ActionButton extends StatelessWidget {
             vertical: 9.h,
           ),
           decoration: BoxDecoration(
-            color: AppColors.primary.withOpacity(0.10),
+            color: AppColors.primary.withValues(alpha: 0.10),
             borderRadius: BorderRadius.circular(12.r),
             border: Border.all(
-              color: AppColors.primary.withOpacity(0.30),
+              color: AppColors.primary.withValues(alpha: 0.30),
               width: 1.w,
             ),
           ),

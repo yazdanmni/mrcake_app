@@ -6,9 +6,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:video_player/video_player.dart';
 
+import 'package:mr_cake_project/core/network/remote_data.dart';
+import 'package:mr_cake_project/core/session/session_manager.dart';
 import 'package:mr_cake_project/core/theme/app_colors.dart';
 import 'package:mr_cake_project/models/course.dart';
 import 'package:mr_cake_project/models/course_details.dart';
+import 'package:mr_cake_project/repositories/catalog_repository.dart';
 
 class LessonScreen extends StatefulWidget {
   final Course course;
@@ -27,6 +30,51 @@ class LessonScreen extends StatefulWidget {
 class _LessonScreenState extends State<LessonScreen> {
   int _selectedTab = 0;
 
+  /// جزئیات کامل قسمت؛ ابتدا همان موردی که از لیست آمده و سپس پاسخ بک‌اند.
+  late CourseLesson _lesson;
+
+  bool _reportedCompletion = false;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _lesson = widget.lesson;
+
+    _loadLesson();
+  }
+
+  Future<void> _loadLesson() async {
+    final result = await RemoteLoader.value<CourseLesson>(
+      label: 'lesson.detail',
+      seed: _lesson,
+      fetch: () => CatalogRepository.instance.fetchLesson(widget.lesson.id),
+    );
+
+    if (!mounted) return;
+
+    final loaded = result.data;
+    if (loaded == null) return;
+
+    setState(() => _lesson = loaded);
+  }
+
+  /// وقتی ویدیو به پایان می‌رسد، قسمت به عنوان دیده‌شده ثبت می‌شود.
+  Future<void> _markCompleted() async {
+    if (_reportedCompletion) return;
+    if (!SessionManager.instance.isLoggedIn) return;
+
+    _reportedCompletion = true;
+
+    await RemoteLoader.action(
+      'lesson.mark',
+      () => CatalogRepository.instance.markLesson(
+        courseId: widget.course.id,
+        lessonId: _lesson.id,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Directionality(
@@ -38,7 +86,7 @@ class _LessonScreenState extends State<LessonScreen> {
             children: [
               _Header(
                 courseTitle: widget.course.title,
-                lessonTitle: widget.lesson.title,
+                lessonTitle: _lesson.title,
               ),
 
               Expanded(
@@ -50,7 +98,8 @@ class _LessonScreenState extends State<LessonScreen> {
 
                       _IntroVideo(
                         imageUrl: widget.course.image,
-                        videoUrl: widget.lesson.video,
+                        videoUrl: _lesson.video,
+                        onCompleted: _markCompleted,
                       ),
 
                       SizedBox(height: 33.h),
@@ -69,12 +118,12 @@ class _LessonScreenState extends State<LessonScreen> {
                       if (_selectedTab == 0)
                         _DescriptionSection(
                           description:
-                              widget.lesson.description,
+                              _lesson.description,
                         )
                       else
                         _IngredientsSection(
                           ingredients:
-                              widget.lesson.ingredients,
+                              _lesson.ingredients,
                         ),
 
                       SizedBox(height: 30.h),
@@ -170,7 +219,7 @@ class _BackButton extends StatelessWidget {
         width: 44.w,
         height: 44.w,
         decoration: BoxDecoration(
-          color: AppColors.premium.withOpacity(0.12),
+          color: AppColors.premium.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(14.r),
           border: Border.all(
             color: AppColors.premium,
@@ -591,9 +640,13 @@ class _IntroVideo extends StatefulWidget {
   final String imageUrl;
   final String videoUrl;
 
+  /// وقتی ویدیو تا انتها دیده شد فراخوانی می‌شود.
+  final VoidCallback? onCompleted;
+
   const _IntroVideo({
     required this.imageUrl,
     required this.videoUrl,
+    this.onCompleted,
   });
 
   @override
@@ -607,6 +660,9 @@ class _IntroVideoState extends State<_IntroVideo> {
   bool _initialized = false;
   bool _hasError = false;
   bool _isLoading = true;
+
+  /// فقط یک بار گزارش «دیده شد» فرستاده می‌شود.
+  bool _reportedCompletion = false;
 
   bool _showControls = true;
 
@@ -701,6 +757,15 @@ class _IntroVideoState extends State<_IntroVideo> {
       }
 
       return;
+    }
+
+    // پایان ویدیو = مشاهده قسمت؛ یک بار به بک‌اند گزارش می‌شود.
+    if (!_reportedCompletion &&
+        value.isInitialized &&
+        value.duration > Duration.zero &&
+        value.position >= value.duration) {
+      _reportedCompletion = true;
+      widget.onCompleted?.call();
     }
 
     if (value.isBuffering) {
@@ -980,9 +1045,9 @@ class _IntroVideoState extends State<_IntroVideo> {
                         Alignment.bottomCenter,
                     colors: [
                       Colors.black
-                          .withOpacity(0.06),
+                          .withValues(alpha: 0.06),
                       Colors.black
-                          .withOpacity(0.38),
+                          .withValues(alpha: 0.38),
                     ],
                   ),
                 ),
@@ -1012,7 +1077,7 @@ class _IntroVideoState extends State<_IntroVideo> {
                 height: 48.w,
                 decoration: BoxDecoration(
                   color: Colors.black
-                      .withOpacity(0.35),
+                      .withValues(alpha: 0.35),
                   shape: BoxShape.circle,
                 ),
                 alignment: Alignment.center,
@@ -1055,11 +1120,11 @@ class _IntroVideoState extends State<_IntroVideo> {
                         decoration:
                             BoxDecoration(
                           color: Colors.white
-                              .withOpacity(0.18),
+                              .withValues(alpha: 0.18),
                           shape: BoxShape.circle,
                           border: Border.all(
                             color: Colors.white
-                                .withOpacity(0.55),
+                                .withValues(alpha: 0.55),
                             width: 1.w,
                           ),
                         ),
@@ -1106,12 +1171,12 @@ class _IntroVideoState extends State<_IntroVideo> {
                               AppColors.premium,
                           bufferedColor:
                               Colors.white
-                                  .withOpacity(
+                                  .withValues(alpha: 
                             0.35,
                           ),
                           backgroundColor:
                               Colors.white
-                                  .withOpacity(
+                                  .withValues(alpha: 
                             0.22,
                           ),
                         ),
@@ -1417,10 +1482,10 @@ class _FullscreenVideoPageState
                         Alignment.bottomCenter,
                     colors: [
                       Colors.black
-                          .withOpacity(0.45),
+                          .withValues(alpha: 0.45),
                       Colors.transparent,
                       Colors.black
-                          .withOpacity(0.5),
+                          .withValues(alpha: 0.5),
                     ],
                   ),
                 ),
@@ -1431,20 +1496,20 @@ class _FullscreenVideoPageState
           if (controller.value.isBuffering)
             Center(
               child: SizedBox(
-                width: 38,
-                height: 38,
+                width: 38.w,
+                height: 38.w,
                 child:
                     CircularProgressIndicator(
-                  strokeWidth: 2.5,
+                  strokeWidth: 2.5.w,
                   color: AppColors.white,
                 ),
               ),
             ),
 
           Positioned(
-            top: 20,
-            left: 20,
-            right: 20,
+            top: 20.h,
+            left: 20.w,
+            right: 20.w,
             child: AnimatedOpacity(
               duration:
                   const Duration(milliseconds: 250),
@@ -1453,18 +1518,18 @@ class _FullscreenVideoPageState
               child: GestureDetector(
                 onTap: _exitFullscreen,
                 child: Container(
-                  width: 42,
-                  height: 42,
+                  width: 42.w,
+                  height: 42.w,
                   decoration: BoxDecoration(
                     color: Colors.black
-                        .withOpacity(0.35),
+                        .withValues(alpha: 0.35),
                     shape: BoxShape.circle,
                   ),
                   alignment: Alignment.center,
-                  child: const Icon(
+                  child: Icon(
                     Icons.close_rounded,
                     color: Colors.white,
-                    size: 24,
+                    size: 24.sp,
                   ),
                 ),
               ),
@@ -1481,23 +1546,23 @@ class _FullscreenVideoPageState
                 child: GestureDetector(
                   onTap: _togglePlay,
                   child: Container(
-                    width: 62,
-                    height: 62,
+                    width: 62.w,
+                    height: 62.w,
                     decoration: BoxDecoration(
                       color: Colors.white
-                          .withOpacity(0.18),
+                          .withValues(alpha: 0.18),
                       shape: BoxShape.circle,
                       border: Border.all(
                         color: Colors.white
-                            .withOpacity(0.55),
+                            .withValues(alpha: 0.55),
                       ),
                     ),
                     alignment:
                         Alignment.center,
-                    child: const Icon(
+                    child: Icon(
                       Icons.play_arrow_rounded,
                       color: Colors.white,
-                      size: 34,
+                      size: 34.sp,
                     ),
                   ),
                 ),
@@ -1505,9 +1570,9 @@ class _FullscreenVideoPageState
             ),
 
           Positioned(
-            left: 25,
-            right: 25,
-            bottom: 20,
+            left: 25.w,
+            right: 25.w,
+            bottom: 20.h,
             child: AnimatedOpacity(
               duration:
                   const Duration(milliseconds: 250),
@@ -1527,18 +1592,18 @@ class _FullscreenVideoPageState
                             AppColors.premium,
                         bufferedColor:
                             Colors.white
-                                .withOpacity(
+                                .withValues(alpha: 
                           0.35,
                         ),
                         backgroundColor:
                             Colors.white
-                                .withOpacity(
+                                .withValues(alpha: 
                           0.22,
                         ),
                       ),
                     ),
 
-                    const SizedBox(height: 10),
+                    SizedBox(height: 10.h),
 
                     Row(
                       children: [
@@ -1554,11 +1619,11 @@ class _FullscreenVideoPageState
                                 : Icons
                                     .play_arrow_rounded,
                             color: Colors.white,
-                            size: 25,
+                            size: 25.sp,
                           ),
                         ),
 
-                        const SizedBox(width: 12),
+                        SizedBox(width: 12.w),
 
                         Text(
                           _formatDuration(
@@ -1566,10 +1631,9 @@ class _FullscreenVideoPageState
                                 .value
                                 .position,
                           ),
-                          style:
-                              const TextStyle(
+                          style: TextStyle(
                             color: Colors.white,
-                            fontSize: 12,
+                            fontSize: 12.sp,
                           ),
                         ),
 
@@ -1581,10 +1645,9 @@ class _FullscreenVideoPageState
                                 .value
                                 .duration,
                           ),
-                          style:
-                              const TextStyle(
+                          style: TextStyle(
                             color: Colors.white,
-                            fontSize: 12,
+                            fontSize: 12.sp,
                           ),
                         ),
                       ],

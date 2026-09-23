@@ -257,7 +257,7 @@ class _ProfileBannerState extends State<ProfileBanner> {
 
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(.12),
+                color: Colors.black.withValues(alpha: .12),
                 blurRadius: 25.r,
                 offset: Offset(
                   0,
@@ -297,7 +297,7 @@ class _ProfileBannerState extends State<ProfileBanner> {
                 height: 58.w,
 
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(.10),
+                  color: AppColors.primary.withValues(alpha: .10),
 
                   shape: BoxShape.circle,
                 ),
@@ -393,7 +393,7 @@ class _ProfileBannerState extends State<ProfileBanner> {
                       height: 40.w,
 
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(.10),
+                        color: AppColors.primary.withValues(alpha: .10),
 
                         borderRadius: BorderRadius.circular(12.r),
                       ),
@@ -641,8 +641,8 @@ class _PremiumNoisePainter extends CustomPainter {
         radius: 1.1,
 
         colors: [
-          Colors.white.withOpacity(.42),
-          Colors.white.withOpacity(.12),
+          Colors.white.withValues(alpha: .42),
+          Colors.white.withValues(alpha: .12),
           Colors.transparent,
         ],
       ).createShader(
@@ -679,10 +679,10 @@ class _PremiumNoisePainter extends CustomPainter {
           _random.nextBool();
 
       noisePaint.color = isLight
-          ? Colors.white.withOpacity(
+          ? Colors.white.withValues(alpha: 
               .025 + (_random.nextDouble() * .025),
             )
-          : Colors.black.withOpacity(
+          : Colors.black.withValues(alpha: 
               .012 + (_random.nextDouble() * .018),
             );
 
@@ -701,7 +701,7 @@ class _PremiumNoisePainter extends CustomPainter {
     // =========================================================================
 
     final Paint linePaint = Paint()
-      ..color = Colors.white.withOpacity(.035)
+      ..color = Colors.white.withValues(alpha: .035)
       ..strokeWidth = 1;
 
     for (
@@ -765,14 +765,14 @@ class _GlassEditButton extends StatelessWidget {
               // Glass Background
               // =================================================================
         
-              color: Colors.white.withOpacity(.22),
+              color: Colors.white.withValues(alpha: .22),
         
               // =================================================================
               // Border
               // =================================================================
         
               border: Border.all(
-                color: Colors.white.withOpacity(.75),
+                color: Colors.white.withValues(alpha: .75),
         
                 width: 1.2,
               ),
@@ -785,7 +785,7 @@ class _GlassEditButton extends StatelessWidget {
         
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(.12),
+                  color: Colors.black.withValues(alpha: .12),
         
                   blurRadius: 14.r,
         
@@ -796,7 +796,7 @@ class _GlassEditButton extends StatelessWidget {
                 ),
         
                 BoxShadow(
-                  color: Colors.white.withOpacity(.18),
+                  color: Colors.white.withValues(alpha: .18),
         
                   blurRadius: 5.r,
         

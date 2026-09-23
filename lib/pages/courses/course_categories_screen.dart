@@ -2,29 +2,96 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:mr_cake_project/core/network/remote_data.dart';
 import 'package:mr_cake_project/core/theme/app_colors.dart';
-import 'package:mr_cake_project/data/categories_data.dart';
-import 'package:mr_cake_project/data/courses_data.dart';
 import 'package:mr_cake_project/models/category_model.dart';
 import 'package:mr_cake_project/models/course.dart';
+import 'package:mr_cake_project/pages/course_details/course_details_screen.dart';
 import 'package:mr_cake_project/pages/courses/widgets/course_section.dart';
+import 'package:mr_cake_project/repositories/catalog_repository.dart';
 
 class CourseCategoriesScreen extends StatefulWidget {
-  const CourseCategoriesScreen({super.key});
+  final int? categoryId;
+  final String? categoryTitle;
+
+  const CourseCategoriesScreen({super.key, this.categoryId, this.categoryTitle});
 
   @override
   State<CourseCategoriesScreen> createState() => _CourseCategoriesScreenState();
 }
 
 class _CourseCategoriesScreenState extends State<CourseCategoriesScreen> {
+  final CatalogRepository _repository = CatalogRepository.instance;
+
+  List<CategoryModel> _categories = const [];
+  List<Course> _courses = const [];
+
   int? _selectedCategoryId;
 
-  List<CategoryModel> get _categories {
-    return CategoriesData.categories;
+  @override
+  void initState() {
+    super.initState();
+    if (widget.categoryId != null) {
+      _selectedCategoryId = widget.categoryId;
+      // No need to call _applyFilter here, _load() will handle it.
+    }
+    _load();
   }
 
+  // ============================================================
+  // LOADING
+  // ============================================================
+
+  Future<void> _load() async {
+    final categoriesRequest = RemoteLoader.list<CategoryModel>(
+      label: 'categories.tree',
+      fetch: () async {
+        // The tree endpoint also carries the children, so it is preferred and
+        // the flat list is the fallback when the tree is unavailable.
+        final tree = await _repository.fetchCategoryTree();
+        if (tree.isNotEmpty) return tree;
+        return _repository.fetchCategories();
+      },
+    );
+
+    final coursesRequest = RemoteLoader.list<Course>(
+      label: 'categories.courses',
+      fetch: () => _repository.fetchCourses(),
+    );
+
+    final categories = await categoriesRequest;
+    final courses = await coursesRequest;
+
+    if (!mounted) return;
+
+    setState(() {
+      _categories = categories.data;
+      _courses = courses.data;
+    });
+  }
+
+  /// Re-queries the backend for the selected category. The local seed is
+  /// filtered too, so the fallback matches the active chip.
+  Future<void> _applyFilter() async {
+    final result = await RemoteLoader.list<Course>(
+      label: 'categories.filtered',
+      fetch: () => _repository.fetchCourses(categoryId: _selectedCategoryId),
+    );
+
+    if (!mounted) return;
+    setState(() => _courses = result.data);
+  }
+
+  // ============================================================
+  // FILTERING
+  // ============================================================
+
   List<Course> get _filteredCourses {
-    return CoursesData.coursesByCategory(_selectedCategoryId);
+    if (_selectedCategoryId == null) return _courses;
+
+    return _courses
+        .where((course) => course.categoryIds.contains(_selectedCategoryId))
+        .toList(growable: false);
   }
 
   List<Course> get _freeCourses {
@@ -45,6 +112,14 @@ class _CourseCategoriesScreenState extends State<CourseCategoriesScreen> {
         .toList();
   }
 
+  void _openCourse(Course course) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => CourseDetailsScreen(course: course),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -57,7 +132,8 @@ class _CourseCategoriesScreenState extends State<CourseCategoriesScreen> {
             slivers: [
               SliverToBoxAdapter(child: _buildHeader()),
 
-              SliverToBoxAdapter(child: _buildCategories()),
+              if (widget.categoryId == null)
+                SliverToBoxAdapter(child: _buildCategories()),
 
               SliverToBoxAdapter(child: _buildCourseSections()),
 
@@ -85,7 +161,7 @@ class _CourseCategoriesScreenState extends State<CourseCategoriesScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
-            'دسته‌بندی دوره‌ها',
+            widget.categoryTitle ?? 'دسته‌بندی دوره‌ها',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontFamily: 'pinarb',
@@ -103,7 +179,7 @@ class _CourseCategoriesScreenState extends State<CourseCategoriesScreen> {
               width: 44.w,
               height: 44.w,
               decoration: BoxDecoration(
-                color: AppColors.premium.withOpacity(0.12),
+                color: AppColors.premium.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(14.r),
                 border: Border.all(color: AppColors.premium, width: 1.5.w),
               ),
@@ -146,6 +222,7 @@ class _CourseCategoriesScreenState extends State<CourseCategoriesScreen> {
                 setState(() {
                   _selectedCategoryId = null;
                 });
+                _applyFilter();
               },
             );
           }
@@ -160,6 +237,7 @@ class _CourseCategoriesScreenState extends State<CourseCategoriesScreen> {
               setState(() {
                 _selectedCategoryId = category.id;
               });
+              _applyFilter();
             },
           );
         },
@@ -178,10 +256,7 @@ class _CourseCategoriesScreenState extends State<CourseCategoriesScreen> {
           CourseSection(
             title: 'از اینجا شروع کن',
             courses: _freeCourses,
-            onCourseTap: (course) {
-              // TODO:
-              // صفحه جزئیات دوره
-            },
+            onCourseTap: _openCourse,
             onViewAll: () {
               // TODO:
               // مشاهده همه دوره‌های رایگان
@@ -192,10 +267,7 @@ class _CourseCategoriesScreenState extends State<CourseCategoriesScreen> {
           CourseSection(
             title: 'حرفه ای شو',
             courses: _professionalCourses,
-            onCourseTap: (course) {
-              // TODO:
-              // صفحه جزئیات دوره
-            },
+            onCourseTap: _openCourse,
             onViewAll: () {
               // TODO:
               // مشاهده همه دوره‌های حرفه‌ای
@@ -206,10 +278,7 @@ class _CourseCategoriesScreenState extends State<CourseCategoriesScreen> {
           CourseSection(
             title: 'تک‌آموزشی',
             courses: _singleCourses,
-            onCourseTap: (course) {
-              // TODO:
-              // صفحه جزئیات دوره
-            },
+            onCourseTap: _openCourse,
             onViewAll: () {
               // TODO:
               // مشاهده همه تک‌آموزشی‌ها
@@ -233,7 +302,7 @@ class _CourseCategoriesScreenState extends State<CourseCategoriesScreen> {
           Icon(Icons.menu_book_outlined, size: 52.sp, color: AppColors.premium),
           SizedBox(height: 15.h),
           Text(
-            'دوره‌ای در این دسته‌بندی وجود ندارد',
+            'اگه عاشق دنیای شیرینی‌پزی هستی، اینجا کم‌کم خونه‌ی آموزشیت میشه. ❤️\n\nبه‌زودی کلی آموزش، دوره، تکنیک‌های کاربردی و رسپی‌های جذاب به این بخش اضافه میشه…\n\nصبر کن، چیزای خیلی خفنی در راهه! 🔥',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontFamily: 'bshabnam',
@@ -276,13 +345,13 @@ class _CategoryItem extends StatelessWidget {
         decoration: BoxDecoration(
           color: isSelected
               ? AppColors.premium
-              : AppColors.premium.withOpacity(0.12),
+              : AppColors.premium.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(18.r),
           border: Border.all(color: AppColors.premium, width: 2.w),
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: AppColors.premium.withOpacity(0.18),
+                    color: AppColors.premium.withValues(alpha: 0.18),
                     blurRadius: 12.r,
                     offset: Offset(0, 5.h),
                   ),

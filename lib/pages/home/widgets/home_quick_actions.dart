@@ -97,26 +97,26 @@ class _QuickActionItem extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(16.r),
         splashColor:
-            AppColors.primary.withOpacity(0.10),
+            AppColors.primary.withValues(alpha: 0.10),
         highlightColor:
-            AppColors.primary.withOpacity(0.05),
+            AppColors.primary.withValues(alpha: 0.05),
         child: Ink(
           height: 85.h,
           width: 85.w,
           decoration: BoxDecoration(
             color: AppColors.surface,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(16.r),
             border: Border.all(
               color: AppColors.border,
               width: 2.w,
             ),
           ),
           child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 4,
-              vertical: 9,
+            padding: EdgeInsets.symmetric(
+              horizontal: 4.w,
+              vertical: 9.h,
             ),
             child: Column(
               mainAxisAlignment:
@@ -128,10 +128,10 @@ class _QuickActionItem extends StatelessWidget {
 
                 Container(
                   width: 37.w,
-                  height: 37.h,
+                  height: 37.w,
                   decoration: BoxDecoration(
                     color: AppColors.primary
-                        .withOpacity(0.14),
+                        .withValues(alpha: 0.14),
                     shape: BoxShape.circle,
                   ),
                   alignment: Alignment.center,
@@ -142,7 +142,7 @@ class _QuickActionItem extends StatelessWidget {
                   ),
                 ),
 
-                const SizedBox(height: 6),
+                SizedBox(height: 6.h),
 
                 // ==================================================
                 // TITLE
@@ -153,7 +153,7 @@ class _QuickActionItem extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
-                  style:  TextStyle(
+                  style: TextStyle(
                     fontFamily: 'Shabnam',
                     fontSize: 16.sp,
                     color: AppColors.textPrimary,

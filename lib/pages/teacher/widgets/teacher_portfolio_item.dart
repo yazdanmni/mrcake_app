@@ -54,7 +54,7 @@ class TeacherPortfolioItemCard extends StatelessWidget {
                     height: 30.w,
                     decoration: BoxDecoration(
                       color:
-                          Colors.black.withOpacity(
+                          Colors.black.withValues(alpha: 
                         0.45,
                       ),
                       shape: BoxShape.circle,

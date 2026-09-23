@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mr_cake_project/core/theme/app_colors.dart';
+import 'package:mr_cake_project/core/utils/external_link.dart';
 
 /// Promo banner item shown in the home carousel.
 class BannerModel {
@@ -11,10 +12,14 @@ class BannerModel {
   final String? title;
   final String? subtitle;
 
+  /// `link_value` of the banner. Tapping the image opens it in the browser.
+  final String? linkUrl;
+
   const BannerModel({
     required this.imageUrl,
     this.title,
     this.subtitle,
+    this.linkUrl,
   });
 }
 
@@ -121,7 +126,7 @@ class _BannerSlide extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasText = banner.title != null || banner.subtitle != null;
 
-    return Stack(
+    final slide = Stack(
       fit: StackFit.expand,
       children: [
         Image.network(
@@ -205,6 +210,17 @@ class _BannerSlide extends StatelessWidget {
             ),
           ),
       ],
+    );
+
+    // The banner links to an external site: tapping the image hands it to the
+    // browser. Without a usable link the slide stays inert, exactly as before.
+    if (!ExternalLink.isOpenable(banner.linkUrl)) return slide;
+
+    return GestureDetector(
+      // The image fills the slide, so the whole banner is tappable.
+      behavior: HitTestBehavior.opaque,
+      onTap: () => ExternalLink.open(banner.linkUrl),
+      child: slide,
     );
   }
 }

@@ -3,7 +3,12 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:mr_cake_project/core/network/api_client.dart';
+import 'package:mr_cake_project/core/network/api_exception.dart';
+import 'package:mr_cake_project/core/network/remote_data.dart';
 import 'package:mr_cake_project/core/theme/app_colors.dart';
+import 'package:mr_cake_project/repositories/profile_repository.dart';
+import 'package:mr_cake_project/repositories/support_repository.dart';
 
 class TicketSubject {
   final int id;
@@ -13,6 +18,17 @@ class TicketSubject {
     required this.id,
     required this.title,
   });
+
+  /// `TicketSubject` -> `GET /api/v1/support/subjects/`
+  factory TicketSubject.fromJson(Map<String, dynamic> json) {
+    return TicketSubject(
+      id: Json.asInt(json['id']) ?? 0,
+      title:
+          Json.asString(json['name']) ??
+              Json.asString(json['title']) ??
+              '',
+    );
+  }
 }
 
 class TicketModel {
@@ -33,6 +49,31 @@ class TicketModel {
     required this.createdAt,
     this.imagePath,
   });
+
+  /// `TicketList` / `TicketDetail` -> `GET /api/v1/support/my_tickets/`
+  ///
+  /// `subject` در بک‌اند یک آبجکت است، پس نام آن استخراج می‌شود.
+  factory TicketModel.fromJson(Map<String, dynamic> json) {
+    final subject = Json.asMap(json['subject']);
+
+    return TicketModel(
+      id: Json.asInt(json['id']) ?? 0,
+
+      subject:
+          Json.asString(subject?['name']) ??
+              Json.asString(json['subject']) ??
+              '',
+
+      title: Json.asString(json['title']) ?? '',
+      description: Json.asString(json['description']) ?? '',
+      status: Json.asString(json['status']) ?? 'open',
+      createdAt:
+          Json.asDate(json['created_at']) ??
+              Json.asDate(json['updated_at']) ??
+              DateTime.now(),
+      imagePath: Json.asString(json['image_path']),
+    );
+  }
 }
 
 class TicketsScreen extends StatefulWidget {
@@ -44,11 +85,11 @@ class TicketsScreen extends StatefulWidget {
 
 class _TicketsScreenState extends State<TicketsScreen> {
   // ============================================================
-  // TEMP API DATA
-  // بعداً فقط این لیست از API پر می‌شود.
+  // SUBJECTS
+  // ابتدا مقدار نمایشی، سپس پاسخ بک‌اند.
   // ============================================================
 
-  final List<TicketSubject> _subjects = const [
+  List<TicketSubject> _subjects = const [
     TicketSubject(
       id: 1,
       title: 'مشکل در دوره',
@@ -60,10 +101,48 @@ class _TicketsScreenState extends State<TicketsScreen> {
   ];
 
   // ============================================================
-  // TEMP TICKETS
+  // TICKETS
+  // از `GET /api/v1/support/my_tickets/`.
   // ============================================================
 
-  final List<TicketModel> _tickets = [];
+  List<TicketModel> _tickets = [];
+
+  @override
+  void initState() {
+    super.initState();
+
+    _load();
+  }
+
+  Future<void> _load() async {
+    final subjectsRequest = RemoteLoader.list<TicketSubject>(
+      label: 'support.subjects',
+      seed: _subjects,
+      fetch: () async {
+        final page = await SupportRepository.instance.fetchSubjects();
+        return page.map(TicketSubject.fromJson);
+      },
+    );
+
+    final ticketsRequest = RemoteLoader.list<TicketModel>(
+      label: 'support.tickets',
+      seed: _tickets,
+      fetch: () async {
+        final page = await SupportRepository.instance.fetchMyTickets();
+        return page.map(TicketModel.fromJson);
+      },
+    );
+
+    final subjects = await subjectsRequest;
+    final tickets = await ticketsRequest;
+
+    if (!mounted) return;
+
+    setState(() {
+      _subjects = subjects.data;
+      _tickets = tickets.data;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -397,8 +476,8 @@ class _TicketCard extends StatelessWidget {
                 ),
                 decoration: BoxDecoration(
                   color: isOpen
-                      ? AppColors.primary.withOpacity(.16)
-                      : AppColors.premium.withOpacity(.14),
+                      ? AppColors.primary.withValues(alpha: .16)
+                      : AppColors.premium.withValues(alpha: .14),
                   borderRadius: BorderRadius.circular(9.r),
                 ),
                 child: Text(
@@ -503,25 +582,60 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
       _isSending = true;
     });
 
+    final title = _titleController.text.trim();
+    final description = _descriptionController.text.trim();
+
     // ==========================================================
-    // این قسمت بعداً API ارسال تیکت قرار می‌گیرد.
+    // آپلود پیوست (اختیاری) و سپس ثبت درخواست در بک‌اند
     // ==========================================================
 
-    await Future.delayed(
-      const Duration(milliseconds: 600),
+    String? attachmentUrl;
+
+    final attachment = _attachment;
+
+    if (attachment != null) {
+      try {
+        attachmentUrl = await MediaRepository.instance.uploadUrl(
+          File(attachment.path),
+        );
+      } on ApiException {
+        // پیوست مهم‌تر از خود درخواست نیست، پس ارسال ادامه پیدا می‌کند.
+        attachmentUrl = null;
+      }
+    }
+
+    // `POST /api/v1/support/`
+    final created = await RemoteLoader.action(
+      'support.create',
+      () => SupportRepository.instance.createTicket(
+        title: title,
+        message: description,
+        subjectId: _selectedSubject!.id,
+        attachment: attachmentUrl,
+      ),
     );
+
+    if (!mounted) return;
+
+    if (!created) {
+      setState(() {
+        _isSending = false;
+      });
+
+      _showError('ارسال درخواست ناموفق بود. دوباره تلاش کنید.');
+
+      return;
+    }
 
     final TicketModel ticket = TicketModel(
       id: DateTime.now().millisecondsSinceEpoch,
       subject: _selectedSubject!.title,
-      title: _titleController.text.trim(),
-      description: _descriptionController.text.trim(),
+      title: title,
+      description: description,
       status: 'open',
       createdAt: DateTime.now(),
       imagePath: _attachment?.path,
     );
-
-    if (!mounted) return;
 
     Navigator.pop(context, ticket);
   }
@@ -844,7 +958,7 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
         style: ElevatedButton.styleFrom(
           elevation: 0,
           backgroundColor: AppColors.premium,
-          disabledBackgroundColor: AppColors.premium.withOpacity(.55),
+          disabledBackgroundColor: AppColors.premium.withValues(alpha: .55),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16.r),
           ),
@@ -917,7 +1031,7 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14.r),
         borderSide: BorderSide(
-          color: Colors.redAccent.withOpacity(.7),
+          color: Colors.redAccent.withValues(alpha: .7),
           width: 1.5,
         ),
       ),
@@ -1014,7 +1128,7 @@ class _AttachmentPreview extends StatelessWidget {
               width: 34.w,
               height: 34.w,
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(.55),
+                color: Colors.black.withValues(alpha: .55),
                 shape: BoxShape.circle,
               ),
               child: Icon(

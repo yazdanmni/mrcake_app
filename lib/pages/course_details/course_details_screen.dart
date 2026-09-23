@@ -4,11 +4,14 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:mr_cake_project/core/network/remote_data.dart';
+import 'package:mr_cake_project/core/session/session_manager.dart';
 import 'package:mr_cake_project/core/theme/app_colors.dart';
 import 'package:mr_cake_project/data/course_details_data.dart';
 import 'package:mr_cake_project/models/course.dart';
 import 'package:mr_cake_project/models/course_details.dart';
 import 'package:mr_cake_project/pages/authpage/login_screen.dart';
+import 'package:mr_cake_project/repositories/catalog_repository.dart';
 import 'package:video_player/video_player.dart';
 
 class CourseDetailsScreen extends StatefulWidget {
@@ -21,7 +24,7 @@ class CourseDetailsScreen extends StatefulWidget {
 }
 
 class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
-  late final CourseDetails details;
+  late CourseDetails details;
 
   bool isStudent = false;
   bool isLoggedIn = false;
@@ -31,15 +34,33 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
   void initState() {
     super.initState();
 
+    // داده آفلاین بلافاصله نمایش داده می‌شود، سپس پاسخ بک‌اند جایگزین می‌شود.
     details = CourseDetailsData.getByCourseId(widget.course.id);
 
-    // ============================================================
-    // تست وضعیت دانشجو
-    // ============================================================
-    //
-    // بعداً از API دریافت می‌شود.
-    //
-    isStudent = false;
+    isLoggedIn = SessionManager.instance.isLoggedIn;
+    isStudent = details.isEnrolled;
+
+    _loadDetails();
+  }
+
+  Future<void> _loadDetails() async {
+    final result = await RemoteLoader.value<CourseDetails>(
+      label: 'course.details',
+      seed: details,
+      fetch: () => CatalogRepository.instance.fetchCourseDetails(
+        widget.course.id,
+      ),
+    );
+
+    if (!mounted) return;
+
+    final loaded = result.data;
+    if (loaded == null) return;
+
+    setState(() {
+      details = loaded;
+      if (loaded.isEnrolled) isStudent = true;
+    });
   }
 
   @override
@@ -286,7 +307,7 @@ class _CourseHeaderImage extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withOpacity(0.24),
+            color: AppColors.primary.withValues(alpha: 0.24),
             blurRadius: 18,
             spreadRadius: 1,
             offset: const Offset(0, 6),
@@ -325,9 +346,9 @@ class _CourseHeaderImage extends StatelessWidget {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.black.withOpacity(0.08),
+                    Colors.black.withValues(alpha: 0.08),
                     Colors.transparent,
-                    Colors.black.withOpacity(0.18),
+                    Colors.black.withValues(alpha: 0.18),
                   ],
                   stops: const [0.0, 0.45, 1.0],
                 ),
@@ -374,7 +395,7 @@ class _BackButton extends StatelessWidget {
         width: 44.w,
         height: 44.w,
         decoration: BoxDecoration(
-          color: AppColors.premium.withOpacity(0.12),
+          color: AppColors.premium.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(14.r),
           border: Border.all(color: AppColors.premium, width: 1.5.w),
         ),
@@ -410,15 +431,15 @@ class _TeacherCard extends StatelessWidget {
           child: Container(
             padding: EdgeInsets.symmetric(horizontal: 1.w),
             decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.30),
+              color: AppColors.primary.withValues(alpha: 0.30),
               borderRadius: BorderRadius.circular(18.5.r),
               border: Border.all(
-                color: Colors.white.withOpacity(0.45),
+                color: Colors.white.withValues(alpha: 0.45),
                 width: 0.7.w,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.primary.withOpacity(0.16),
+                  color: AppColors.primary.withValues(alpha: 0.16),
                   blurRadius: 10,
                   spreadRadius: 0,
                   offset: const Offset(0, 2),
@@ -1308,8 +1329,8 @@ class _IntroVideoState extends State<_IntroVideo> {
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      Colors.black.withOpacity(0.06),
-                      Colors.black.withOpacity(0.38),
+                      Colors.black.withValues(alpha: 0.06),
+                      Colors.black.withValues(alpha: 0.38),
                     ],
                   ),
                 ),
@@ -1343,7 +1364,7 @@ class _IntroVideoState extends State<_IntroVideo> {
                 width: 48.w,
                 height: 48.w,
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.35),
+                  color: Colors.black.withValues(alpha: 0.35),
                   shape: BoxShape.circle,
                 ),
                 alignment: Alignment.center,
@@ -1378,10 +1399,10 @@ class _IntroVideoState extends State<_IntroVideo> {
                         width: 58.w,
                         height: 58.w,
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.18),
+                          color: Colors.white.withValues(alpha: 0.18),
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: Colors.white.withOpacity(0.55),
+                            color: Colors.white.withValues(alpha: 0.55),
                             width: 1.w,
                           ),
                         ),
@@ -1423,8 +1444,8 @@ class _IntroVideoState extends State<_IntroVideo> {
                         padding: EdgeInsets.zero,
                         colors: VideoProgressColors(
                           playedColor: AppColors.premium,
-                          bufferedColor: Colors.white.withOpacity(0.35),
-                          backgroundColor: Colors.white.withOpacity(0.22),
+                          bufferedColor: Colors.white.withValues(alpha: 0.35),
+                          backgroundColor: Colors.white.withValues(alpha: 0.22),
                         ),
                       ),
 
@@ -1696,9 +1717,9 @@ class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      Colors.black.withOpacity(0.45),
+                      Colors.black.withValues(alpha: 0.45),
                       Colors.transparent,
-                      Colors.black.withOpacity(0.5),
+                      Colors.black.withValues(alpha: 0.5),
                     ],
                   ),
                 ),
@@ -1712,10 +1733,10 @@ class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
           if (controller.value.isBuffering)
             Center(
               child: SizedBox(
-                width: 38,
-                height: 38,
+                width: 38.w,
+                height: 38.w,
                 child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
+                  strokeWidth: 2.5.w,
                   color: AppColors.white,
                 ),
               ),
@@ -1725,9 +1746,9 @@ class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
           // TOP BAR
           // ==================================================================
           Positioned(
-            top: 20,
-            left: 20,
-            right: 20,
+            top: 20.h,
+            left: 20.w,
+            right: 20.w,
             child: AnimatedOpacity(
               duration: const Duration(milliseconds: 250),
               opacity: _showControls ? 1 : 0,
@@ -1736,17 +1757,17 @@ class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
                   GestureDetector(
                     onTap: _exitFullscreen,
                     child: Container(
-                      width: 42,
-                      height: 42,
+                      width: 42.w,
+                      height: 42.w,
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.35),
+                        color: Colors.black.withValues(alpha: 0.35),
                         shape: BoxShape.circle,
                       ),
                       alignment: Alignment.center,
-                      child: const Icon(
+                      child: Icon(
                         Icons.close_rounded,
                         color: Colors.white,
-                        size: 24,
+                        size: 24.sp,
                       ),
                     ),
                   ),
@@ -1766,18 +1787,18 @@ class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
                 child: GestureDetector(
                   onTap: _togglePlay,
                   child: Container(
-                    width: 62,
-                    height: 62,
+                    width: 62.w,
+                    height: 62.w,
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.18),
+                      color: Colors.white.withValues(alpha: 0.18),
                       shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white.withOpacity(0.55)),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.55)),
                     ),
                     alignment: Alignment.center,
-                    child: const Icon(
+                    child: Icon(
                       Icons.play_arrow_rounded,
                       color: Colors.white,
-                      size: 34,
+                      size: 34.sp,
                     ),
                   ),
                 ),
@@ -1788,9 +1809,9 @@ class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
           // BOTTOM CONTROLS
           // ==================================================================
           Positioned(
-            left: 25,
-            right: 25,
-            bottom: 20,
+            left: 25.w,
+            right: 25.w,
+            bottom: 20.h,
             child: AnimatedOpacity(
               duration: const Duration(milliseconds: 250),
               opacity: _showControls ? 1 : 0,
@@ -1804,12 +1825,12 @@ class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
                       padding: EdgeInsets.zero,
                       colors: VideoProgressColors(
                         playedColor: AppColors.premium,
-                        bufferedColor: Colors.white.withOpacity(0.35),
-                        backgroundColor: Colors.white.withOpacity(0.22),
+                        bufferedColor: Colors.white.withValues(alpha: 0.35),
+                        backgroundColor: Colors.white.withValues(alpha: 0.22),
                       ),
                     ),
 
-                    const SizedBox(height: 10),
+                    SizedBox(height: 10.h),
 
                     Row(
                       children: [
@@ -1820,17 +1841,17 @@ class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
                                 ? Icons.pause_rounded
                                 : Icons.play_arrow_rounded,
                             color: Colors.white,
-                            size: 25,
+                            size: 25.sp,
                           ),
                         ),
 
-                        const SizedBox(width: 12),
+                        SizedBox(width: 12.w),
 
                         Text(
                           _formatDuration(controller.value.position),
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: Colors.white,
-                            fontSize: 12,
+                            fontSize: 12.sp,
                           ),
                         ),
 
@@ -1838,9 +1859,9 @@ class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
 
                         Text(
                           _formatDuration(controller.value.duration),
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: Colors.white,
-                            fontSize: 12,
+                            fontSize: 12.sp,
                           ),
                         ),
                       ],
@@ -1974,7 +1995,7 @@ class _RegisterButton extends StatelessWidget {
           child: Ink(
             decoration: BoxDecoration(
               color: isStudent
-                  ? AppColors.primary.withOpacity(0.55)
+                  ? AppColors.primary.withValues(alpha: 0.55)
                   : AppColors.primary,
               borderRadius: BorderRadius.circular(16.r),
             ),
@@ -2029,7 +2050,7 @@ class _RegisterButton extends StatelessWidget {
                 fontFamily: 'bshabnam',
                 fontSize: 14.sp,
                 height: 1.8,
-                color: AppColors.black.withOpacity(0.65),
+                color: AppColors.black.withValues(alpha: 0.65),
               ),
             ),
             actionsPadding: EdgeInsets.fromLTRB(18.w, 0, 18.w, 18.h),
@@ -2108,7 +2129,7 @@ class _RegisterButton extends StatelessWidget {
                         fontFamily: 'bshabnam',
                         fontSize: 14.sp,
                         height: 1.8,
-                        color: AppColors.black.withOpacity(0.65),
+                        color: AppColors.black.withValues(alpha: 0.65),
                       ),
                     ),
 
@@ -2156,7 +2177,7 @@ class _RegisterButton extends StatelessWidget {
                                 style: TextStyle(
                                   fontFamily: 'bshabnam',
                                   fontSize: 13.sp,
-                                  color: AppColors.black.withOpacity(0.75),
+                                  color: AppColors.black.withValues(alpha: 0.75),
                                 ),
                               ),
                             ),
@@ -2182,7 +2203,7 @@ class _RegisterButton extends StatelessWidget {
                           : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
-                        disabledBackgroundColor: AppColors.primary.withOpacity(
+                        disabledBackgroundColor: AppColors.primary.withValues(alpha: 
                           0.25,
                         ),
                         elevation: 0,
@@ -2234,7 +2255,7 @@ class _RegisterButton extends StatelessWidget {
                   height: 64.w,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Colors.green.withOpacity(0.12),
+                    color: Colors.green.withValues(alpha: 0.12),
                   ),
                   child: Icon(
                     Icons.check_rounded,
@@ -2265,7 +2286,7 @@ class _RegisterButton extends StatelessWidget {
                     fontFamily: 'bshabnam',
                     fontSize: 13.sp,
                     height: 1.8,
-                    color: AppColors.black.withOpacity(0.6),
+                    color: AppColors.black.withValues(alpha: 0.6),
                   ),
                 ),
 
@@ -2339,7 +2360,7 @@ class _RegisterButton extends StatelessWidget {
                 fontFamily: 'bshabnam',
                 fontSize: 14.sp,
                 height: 1.8,
-                color: AppColors.black.withOpacity(0.65),
+                color: AppColors.black.withValues(alpha: 0.65),
               ),
             ),
             actionsPadding: EdgeInsets.fromLTRB(18.w, 0, 18.w, 18.h),
@@ -2407,7 +2428,7 @@ class _RegisterButton extends StatelessWidget {
                   height: 64.w,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Colors.green.withOpacity(0.12),
+                    color: Colors.green.withValues(alpha: 0.12),
                   ),
                   child: Icon(
                     Icons.check_rounded,
@@ -2438,7 +2459,7 @@ class _RegisterButton extends StatelessWidget {
                     fontFamily: 'bshabnam',
                     fontSize: 13.sp,
                     height: 1.8,
-                    color: AppColors.black.withOpacity(0.6),
+                    color: AppColors.black.withValues(alpha: 0.6),
                   ),
                 ),
 

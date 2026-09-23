@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+import 'package:mr_cake_project/core/network/remote_data.dart';
 import 'package:mr_cake_project/core/theme/app_colors.dart';
 import 'package:mr_cake_project/models/course.dart';
 import 'package:mr_cake_project/models/course_details.dart';
 import 'package:mr_cake_project/pages/course_learning/lesson_screen.dart';
+import 'package:mr_cake_project/repositories/catalog_repository.dart';
 
 class CourseLearningScreen extends StatefulWidget {
   final Course course;
@@ -24,6 +26,47 @@ class CourseLearningScreen extends StatefulWidget {
 class _CourseLearningScreenState
     extends State<CourseLearningScreen> {
   final Set<int> _openedChapters = {};
+
+  /// ابتدا همان جزئیاتی که از صفحه قبل آمده، سپس پاسخ بک‌اند.
+  late CourseDetails _details;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _details = widget.details;
+
+    _refresh();
+  }
+
+  /// فصل‌ها گاهی همراه جزئیات نمی‌آیند و از اندپوینت جداگانه خوانده می‌شوند.
+  Future<void> _refresh() async {
+    final result = await RemoteLoader.value<CourseDetails>(
+      label: 'learning.details',
+      seed: _details,
+      fetch: () async {
+        final remote = await CatalogRepository.instance.fetchCourseDetails(
+          widget.course.id,
+        );
+
+        if (remote == null) return null;
+        if (remote.chapters.isNotEmpty) return remote;
+
+        final chapters = await CatalogRepository.instance.fetchChapters(
+          courseId: widget.course.id,
+        );
+
+        return chapters.isEmpty ? remote : remote.copyWithChapters(chapters);
+      },
+    );
+
+    if (!mounted) return;
+
+    final loaded = result.data;
+    if (loaded == null) return;
+
+    setState(() => _details = loaded);
+  }
 
   void _toggleChapter(int chapterId) {
     setState(() {
@@ -60,7 +103,7 @@ class _CourseLearningScreenState
               ),
 
               Expanded(
-                child: widget.details.chapters.isEmpty
+                child: _details.chapters.isEmpty
                     ? const _EmptyChapters()
                     : ListView.builder(
                         padding: EdgeInsets.fromLTRB(
@@ -72,10 +115,10 @@ class _CourseLearningScreenState
                         physics:
                             const BouncingScrollPhysics(),
                         itemCount:
-                            widget.details.chapters.length,
+                            _details.chapters.length,
                         itemBuilder: (context, index) {
                           final chapter =
-                              widget.details.chapters[index];
+                              _details.chapters[index];
 
                           final isOpen =
                               _openedChapters.contains(
@@ -165,7 +208,7 @@ class _BackButton extends StatelessWidget {
         width: 44.w,
         height: 44.w,
         decoration: BoxDecoration(
-          color: AppColors.premium.withOpacity(0.12),
+          color: AppColors.premium.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(14.r),
           border: Border.all(
             color: AppColors.premium,
@@ -418,7 +461,7 @@ class _LessonItem extends StatelessWidget {
                   fontFamily: 'bshabnam',
                   fontSize: 12.sp,
                   color: AppColors.textSecondary
-                      .withOpacity(0.75),
+                      .withValues(alpha: 0.75),
                 ),
               ),
 
@@ -429,7 +472,7 @@ class _LessonItem extends StatelessWidget {
               height: 30.w,
               decoration: BoxDecoration(
                 color: AppColors.premium
-                    .withOpacity(0.14),
+                    .withValues(alpha: 0.14),
                 shape: BoxShape.circle,
                 border: Border.all(
                   color: AppColors.premium,

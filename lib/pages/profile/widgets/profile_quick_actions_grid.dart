@@ -136,7 +136,7 @@ class _ProfileQuickActionCard extends StatelessWidget {
           width: double.infinity,
           height: 85.h,
           decoration: BoxDecoration(
-            color: AppColors.premium.withOpacity(0.10),
+            color: AppColors.premium.withValues(alpha: 0.10),
             borderRadius: BorderRadius.circular(18.r),
             border: Border.all(
               color: AppColors.premium,

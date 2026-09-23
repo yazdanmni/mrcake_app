@@ -7,16 +7,23 @@ import '../../../core/theme/app_colors.dart';
 class ProfileEditInfoSection extends StatefulWidget {
   const ProfileEditInfoSection({
     super.key,
-    this.firstName = 'یزدان',
-    this.lastName = 'منوچهری',
-    this.phoneNumber = '09010674203',
+    this.firstName,
+    this.lastName,
+    this.phoneNumber,
     this.onSave,
   });
 
-  final String firstName;
-  final String lastName;
-  final String phoneNumber;
-  final VoidCallback? onSave;
+  /// نام واقعی کاربر. اگر `null` باشد همان مقدار نمایشی قبلی نشان داده می‌شود.
+  final String? firstName;
+
+  /// نام خانوادگی واقعی کاربر.
+  final String? lastName;
+
+  /// شماره تلفن واقعی کاربر.
+  final String? phoneNumber;
+
+  /// مقادیر ویرایش‌شده را به صفحه پروفایل می‌دهد تا به API فرستاده شوند.
+  final void Function(String firstName, String lastName)? onSave;
 
   @override
   State<ProfileEditInfoSection> createState() =>
@@ -34,16 +41,33 @@ class _ProfileEditInfoSectionState
     super.initState();
 
     _firstNameController = TextEditingController(
-      text: widget.firstName,
+      text: widget.firstName ?? 'یزدان',
     );
 
     _lastNameController = TextEditingController(
-      text: widget.lastName,
+      text: widget.lastName ?? 'منوچهری',
     );
 
     _phoneController = TextEditingController(
-      text: widget.phoneNumber,
+      text: widget.phoneNumber ?? '09010674203',
     );
+  }
+
+  @override
+  void didUpdateWidget(ProfileEditInfoSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // پروفایل بعد از اولین رسم از API می‌آید، پس مقادیر باید هم‌گام شوند.
+    _syncController(_firstNameController, widget.firstName);
+    _syncController(_lastNameController, widget.lastName);
+    _syncController(_phoneController, widget.phoneNumber);
+  }
+
+  void _syncController(TextEditingController controller, String? value) {
+    if (value == null || value.isEmpty) return;
+    if (controller.text == value) return;
+
+    controller.text = value;
   }
 
   @override
@@ -58,9 +82,10 @@ class _ProfileEditInfoSectionState
   void _saveInformation() {
     FocusScope.of(context).unfocus();
 
-    widget.onSave?.call();
-
-    // بعداً API اینجا قرار می‌گیرد.
+    widget.onSave?.call(
+      _firstNameController.text.trim(),
+      _lastNameController.text.trim(),
+    );
   }
 
   @override

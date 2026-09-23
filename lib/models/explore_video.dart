@@ -1,3 +1,19 @@
+import '../core/network/api_client.dart';
+import '../core/network/api_config.dart';
+
+/// `ExploreVideo` -> `GET /api/v1/content/explore-videos/`
+///
+/// Real payload:
+/// ```json
+/// {"id":1,"title":"..","description":"..","duration_seconds":90,
+///  "status":"published","published_at":"..","teacher":3,
+///  "video_media":12,"thumbnail_media":13,"is_active":true}
+/// ```
+///
+/// `video_media` / `thumbnail_media` are **media ids**, and `teacher` is a
+/// user id — none of them is a url. The repository resolves them through
+/// `GET /api/v1/media/{id}/` and `GET /api/v1/accounts/users/{id}/` and then
+/// calls [withMedia] / [withInstructor].
 class ExploreVideo {
   final int id;
 
@@ -19,6 +35,20 @@ class ExploreVideo {
   /// مدت زمان ویدیو بر حسب ثانیه
   final int duration;
 
+  // ---------------------------------------------------------------------------
+  // Extra fields provided by the backend (optional).
+  // ---------------------------------------------------------------------------
+
+  final String description;
+  final String status;
+  final bool isActive;
+
+  /// `video_media` id — needed to resolve [videoUrl].
+  final int? videoMediaId;
+
+  /// `thumbnail_media` id — needed to resolve [thumbnail].
+  final int? thumbnailMediaId;
+
   const ExploreVideo({
     required this.id,
     required this.videoUrl,
@@ -29,35 +59,102 @@ class ExploreVideo {
     required this.instructorLastName,
     required this.instructorImage,
     required this.duration,
+    this.description = '',
+    this.status = 'published',
+    this.isActive = true,
+    this.videoMediaId,
+    this.thumbnailMediaId,
   });
 
   String get instructorFullName {
-    return '$instructorFirstName $instructorLastName';
+    return '$instructorFirstName $instructorLastName'.trim();
+  }
+
+  bool get isPublished => status == 'published';
+
+  /// `MM:SS` — used by the reels overlay.
+  String get durationLabel {
+    if (duration <= 0) return '00:00';
+    final minutes = duration ~/ 60;
+    final seconds = duration % 60;
+    return '${minutes.toString().padLeft(2, '0')}:'
+        '${seconds.toString().padLeft(2, '0')}';
   }
 
   factory ExploreVideo.fromJson(Map<String, dynamic> json) {
     return ExploreVideo(
-      id: int.tryParse(
-            json['id']?.toString() ?? '0',
-          ) ??
-          0,
-      videoUrl: json['video_url']?.toString() ?? '',
-      thumbnail: json['thumbnail']?.toString() ?? '',
-      title: json['title']?.toString() ?? '',
-      instructorId: int.tryParse(
-            json['instructor_id']?.toString() ?? '0',
-          ) ??
-          0,
-      instructorFirstName:
-          json['instructor_first_name']?.toString() ?? '',
-      instructorLastName:
-          json['instructor_last_name']?.toString() ?? '',
-      instructorImage:
-          json['instructor_image']?.toString() ?? '',
-      duration: int.tryParse(
-            json['duration']?.toString() ?? '0',
-          ) ??
-          0,
+      id: Json.asInt(json['id']) ?? 0,
+
+      videoUrl: _mediaUrl(json['video_url']),
+
+      thumbnail: _mediaUrl(json['thumbnail'] ?? json['thumbnail_url']),
+
+      title: Json.asString(json['title']) ?? '',
+
+      instructorId:
+          Json.asInt(json['teacher']) ??
+              Json.asInt(json['instructor_id']) ??
+              0,
+
+      instructorFirstName: Json.asString(json['instructor_first_name']) ?? '',
+      instructorLastName: Json.asString(json['instructor_last_name']) ?? '',
+      instructorImage: _mediaUrl(json['instructor_image']),
+
+      duration:
+          Json.asInt(json['duration_seconds']) ??
+              Json.asInt(json['duration']) ??
+              0,
+
+      description: Json.asString(json['description']) ?? '',
+      status: Json.asString(json['status']) ?? 'published',
+      isActive: Json.asBool(json['is_active'], fallback: true),
+      videoMediaId: Json.asInt(json['video_media']),
+      thumbnailMediaId: Json.asInt(json['thumbnail_media']),
+    );
+  }
+
+  /// Fills in the urls once the repository has resolved the media ids.
+  ExploreVideo withMedia({String? videoUrl, String? thumbnail}) {
+    return ExploreVideo(
+      id: id,
+      videoUrl: videoUrl ?? this.videoUrl,
+      thumbnail: thumbnail ?? this.thumbnail,
+      title: title,
+      instructorId: instructorId,
+      instructorFirstName: instructorFirstName,
+      instructorLastName: instructorLastName,
+      instructorImage: instructorImage,
+      duration: duration,
+      description: description,
+      status: status,
+      isActive: isActive,
+      videoMediaId: videoMediaId,
+      thumbnailMediaId: thumbnailMediaId,
+    );
+  }
+
+  /// Fills in the instructor once the repository has resolved `teacher`.
+  ExploreVideo withInstructor({
+    int? id,
+    String? firstName,
+    String? lastName,
+    String? image,
+  }) {
+    return ExploreVideo(
+      id: this.id,
+      videoUrl: videoUrl,
+      thumbnail: thumbnail,
+      title: title,
+      instructorId: id ?? instructorId,
+      instructorFirstName: firstName ?? instructorFirstName,
+      instructorLastName: lastName ?? instructorLastName,
+      instructorImage: image ?? instructorImage,
+      duration: duration,
+      description: description,
+      status: status,
+      isActive: isActive,
+      videoMediaId: videoMediaId,
+      thumbnailMediaId: thumbnailMediaId,
     );
   }
 
@@ -72,6 +169,17 @@ class ExploreVideo {
       'instructor_last_name': instructorLastName,
       'instructor_image': instructorImage,
       'duration': duration,
+      'description': description,
+      'status': status,
+      'is_active': isActive,
+      if (videoMediaId != null) 'video_media': videoMediaId,
+      if (thumbnailMediaId != null) 'thumbnail_media': thumbnailMediaId,
     };
+  }
+
+  static String _mediaUrl(dynamic value) {
+    final raw = value?.toString() ?? '';
+    if (raw.isEmpty) return '';
+    return ApiConfig.mediaUrl(raw);
   }
 }

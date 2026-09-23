@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mr_cake_project/core/theme/app_colors.dart';
 
 import '../../../models/course_intro_video.dart';
@@ -21,7 +22,7 @@ class CourseIntroVideoCard extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(11),
+        borderRadius: BorderRadius.circular(11.r),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -30,7 +31,7 @@ class CourseIntroVideoCard extends StatelessWidget {
               video: video,
             ),
 
-            const SizedBox(height: 10),
+            SizedBox(height: 10.h),
 
             _VideoInformation(
               video: video,
@@ -54,7 +55,7 @@ class _Thumbnail extends StatelessWidget {
     return AspectRatio(
       aspectRatio: 222 / 121,
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(11),
+        borderRadius: BorderRadius.circular(11.r),
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -73,11 +74,11 @@ class _Thumbnail extends StatelessWidget {
                 return Container(
                   color: AppColors.field,
                   alignment: Alignment.center,
-                  child: const SizedBox(
-                    width: 20,
-                    height: 20,
+                  child: SizedBox(
+                    width: 20.w,
+                    height: 20.w,
                     child: CircularProgressIndicator(
-                      strokeWidth: 2,
+                      strokeWidth: 2.w,
                       color: AppColors.primary,
                     ),
                   ),
@@ -91,9 +92,9 @@ class _Thumbnail extends StatelessWidget {
                 return Container(
                   color: AppColors.field,
                   alignment: Alignment.center,
-                  child: const Icon(
+                  child: Icon(
                     Icons.image_not_supported_outlined,
-                    size: 28,
+                    size: 28.sp,
                     color: AppColors.placeholder,
                   ),
                 );
@@ -101,8 +102,8 @@ class _Thumbnail extends StatelessWidget {
             ),
 
             Positioned(
-              right: 7,
-              bottom: 7,
+              right: 7.w,
+              bottom: 7.h,
               child: _VideoDuration(
                 duration: video.duration,
               ),
@@ -124,30 +125,30 @@ class _VideoDuration extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(7),
+      borderRadius: BorderRadius.circular(7.r),
       child: BackdropFilter(
         filter: ImageFilter.blur(
           sigmaX: 10,
           sigmaY: 10,
         ),
         child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 7,
-            vertical: 4,
+          padding: EdgeInsets.symmetric(
+            horizontal: 7.w,
+            vertical: 4.h,
           ),
           decoration: BoxDecoration(
-            color: AppColors.premium.withOpacity(0.55),
-            borderRadius: BorderRadius.circular(7),
+            color: AppColors.premium.withValues(alpha: 0.55),
+            borderRadius: BorderRadius.circular(7.r),
             border: Border.all(
-              color: Colors.white.withOpacity(0.25),
-              width: 0.6,
+              color: Colors.white.withValues(alpha: 0.25),
+              width: 0.6.w,
             ),
           ),
           child: Text(
             duration,
-            style: const TextStyle(
+            style: TextStyle(
               fontFamily: 'Shabnam',
-              fontSize: 10,
+              fontSize: 10.sp,
               fontWeight: FontWeight.w500,
               color: Colors.white,
               height: 1,
@@ -176,7 +177,7 @@ class _VideoInformation extends StatelessWidget {
           imageUrl: video.teacherAvatar,
         ),
 
-        const SizedBox(width: 10),
+        SizedBox(width: 10.w),
 
         Expanded(
           child: Align(
@@ -194,9 +195,9 @@ class _VideoInformation extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.right,
                     textDirection: TextDirection.rtl,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontFamily: 'BShabnam',
-                      fontSize: 14,
+                      fontSize: 14.sp,
                       fontWeight: FontWeight.w600,
                       color: AppColors.textPrimary,
                       height: 1.35,
@@ -204,7 +205,7 @@ class _VideoInformation extends StatelessWidget {
                   ),
                 ),
 
-                const SizedBox(height: 7),
+                SizedBox(height: 7.h),
 
                 SizedBox(
                   width: double.infinity,
@@ -214,16 +215,16 @@ class _VideoInformation extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.right,
                     textDirection: TextDirection.rtl,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontFamily: 'Shabnam',
-                      fontSize: 14,
+                      fontSize: 14.sp,
                       color: AppColors.textSecondary,
                       height: 1.2,
                     ),
                   ),
                 ),
 
-                const SizedBox(height: 6),
+                SizedBox(height: 6.h),
 
                 SizedBox(
                   width: double.infinity,
@@ -235,9 +236,9 @@ class _VideoInformation extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.right,
                     textDirection: TextDirection.rtl,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontFamily: 'Shabnam',
-                      fontSize: 14,
+                      fontSize: 14.sp,
                       color: AppColors.textSecondary,
                       height: 1.2,
                     ),
@@ -264,8 +265,8 @@ class _TeacherAvatar extends StatelessWidget {
     return ClipOval(
       child: Image.network(
         imageUrl,
-        width: 36,
-        height: 36,
+        width: 36.w,
+        height: 36.w,
         fit: BoxFit.cover,
         errorBuilder: (
           BuildContext context,
@@ -273,13 +274,13 @@ class _TeacherAvatar extends StatelessWidget {
           StackTrace? stackTrace,
         ) {
           return Container(
-            width: 36,
-            height: 36,
-            color: AppColors.primary.withOpacity(0.14),
+            width: 36.w,
+            height: 36.w,
+            color: AppColors.primary.withValues(alpha: 0.14),
             alignment: Alignment.center,
-            child: const Icon(
+            child: Icon(
               Icons.person_outline_rounded,
-              size: 20,
+              size: 20.sp,
               color: AppColors.primary,
             ),
           );

@@ -8,30 +8,34 @@ import '../../../models/course.dart';
 
 class CourseCard extends StatelessWidget {
   final Course course;
-  final double width;
-  final double height;
+
+  /// `null` keeps the Figma default size. The values can not be written as
+  /// `.w` / `.h` directly in the parameter list: an extension getter is not a
+  /// constant expression, so the constructor would lose its `const`.
+  final double? width;
+  final double? height;
   final VoidCallback? onTap;
 
   const CourseCard({
     super.key,
     required this.course,
-    this.width = 180,
-    this.height = 267,
+    this.width,
+    this.height,
     this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: width,
-      height: height,
+      width: width ?? 180.w,
+      height: height ?? 267.h,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(18.r),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(18.r),
             child: Stack(
               fit: StackFit.expand,
               children: [
@@ -58,10 +62,10 @@ class CourseCard extends StatelessWidget {
                           color: AppColors.field,
                           alignment: Alignment.center,
                           child: SizedBox(
-                            width: 22,
-                            height: 22,
+                            width: 22.w,
+                            height: 22.w,
                             child: CircularProgressIndicator(
-                              strokeWidth: 2,
+                              strokeWidth: 2.w,
                               value: loadingProgress.expectedTotalBytes != null
                                   ? loadingProgress.cumulativeBytesLoaded /
                                         loadingProgress.expectedTotalBytes!
@@ -80,9 +84,9 @@ class CourseCard extends StatelessWidget {
                         return Container(
                           color: AppColors.field,
                           alignment: Alignment.center,
-                          child: const Icon(
+                          child: Icon(
                             Icons.image_not_supported_outlined,
-                            size: 28,
+                            size: 28.sp,
                             color: AppColors.placeholder,
                           ),
                         );
@@ -102,9 +106,9 @@ class CourseCard extends StatelessWidget {
                         colors: [
                           Colors.transparent,
                           Colors.transparent,
-                          AppColors.sectionBackground.withOpacity(0.18),
-                          AppColors.sectionBackground.withOpacity(0.52),
-                          AppColors.sectionBackground.withOpacity(0.86),
+                          AppColors.sectionBackground.withValues(alpha: 0.18),
+                          AppColors.sectionBackground.withValues(alpha: 0.52),
+                          AppColors.sectionBackground.withValues(alpha: 0.86),
                           AppColors.sectionBackground,
                         ],
                       ),
@@ -116,9 +120,9 @@ class CourseCard extends StatelessWidget {
                 // ==================================================
 
                 Positioned(
-                  left: 10,
-                  right: 10,
-                  bottom: 9,
+                  left: 10.w,
+                  right: 10.w,
+                  bottom: 9.h,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -128,7 +132,7 @@ class CourseCard extends StatelessWidget {
 
                       _TeacherCard(course: course),
 
-                      const SizedBox(height: 7),
+                      SizedBox(height: 7.h),
 
                       // ==================================================
                       // COURSE TITLE
@@ -138,16 +142,16 @@ class CourseCard extends StatelessWidget {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontFamily: 'PinarB',
-                          fontSize: 18,
+                          fontSize: 18.sp,
                           fontWeight: FontWeight.bold,
                           color: AppColors.textPrimary,
                           height: 1.15,
                         ),
                       ),
 
-                      const SizedBox(height: 5),
+                      SizedBox(height: 5.h),
 
                       // ==================================================
                       // LESSONS + DURATION
@@ -158,43 +162,43 @@ class CourseCard extends StatelessWidget {
                           _InfoItem(
                             text: '${_toPersianDigits(course.lessons)} قسمت',
                             fontFamily: 'Shabnam',
-                            fontSize: 14,
+                            fontSize: 14.sp,
                             color: AppColors.textSecondary,
                           ),
 
-                          const SizedBox(width: 9),
+                          SizedBox(width: 9.w),
 
                           Container(
-                            width: 3,
-                            height: 3,
+                            width: 3.w,
+                            height: 3.w,
                             decoration: const BoxDecoration(
                               shape: BoxShape.circle,
                               color: AppColors.textSecondary,
                             ),
                           ),
 
-                          const SizedBox(width: 9),
+                          SizedBox(width: 9.w),
 
                           _InfoItem(
                             text: '${_toPersianDigits(course.duration)} ساعت',
                             fontFamily: 'Shabnam',
-                            fontSize: 14,
+                            fontSize: 14.sp,
                             color: AppColors.textSecondary,
                           ),
                         ],
                       ),
 
-                      const SizedBox(height: 4),
+                      SizedBox(height: 4.h),
 
                       // ==================================================
                       // PRICE
                       // ==================================================
                       if (_isFreeCourse(course.price))
-                        const Text(
+                        Text(
                           'رایگان',
                           style: TextStyle(
                             fontFamily: 'Shabnam',
-                            fontSize: 16,
+                            fontSize: 16.sp,
                             fontWeight: FontWeight.bold,
                             color: AppColors.textPrimary,
                             height: 1,
@@ -208,22 +212,22 @@ class CourseCard extends StatelessWidget {
                           children: [
                             Text(
                               _formatPrice(course.price),
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontFamily: 'Shabnam',
-                                fontSize: 16,
+                                fontSize: 16.sp,
                                 fontWeight: FontWeight.bold,
                                 color: AppColors.textPrimary,
                                 height: 1,
                               ),
                             ),
 
-                            const SizedBox(width: 4),
+                            SizedBox(width: 4.w),
 
                             Text(
                               course.currency,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontFamily: 'Pinar',
-                                fontSize: 12,
+                                fontSize: 12.sp,
                                 color: AppColors.textSecondary,
                                 height: 1,
                               ),
@@ -257,27 +261,27 @@ class _TeacherCard extends StatelessWidget {
       width: 119.w,
       height: 37.h,
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(18.5),
+        borderRadius: BorderRadius.circular(18.5.r),
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
           child: Container(
             padding: EdgeInsets.symmetric(horizontal: 1.w),
             decoration: BoxDecoration(
               // رنگ اصلی برند با شفافیت
-              color: AppColors.primary.withOpacity(0.30),
+              color: AppColors.primary.withValues(alpha: 0.30),
 
-              borderRadius: BorderRadius.circular(18.5),
+              borderRadius: BorderRadius.circular(18.5.r),
 
               // لبه شیشه‌ای
               border: Border.all(
-                color: Colors.white.withOpacity(0.45),
-                width: 0.7,
+                color: Colors.white.withValues(alpha: 0.45),
+                width: 0.7.w,
               ),
 
               // سایه خیلی نرم
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.primary.withOpacity(0.16),
+                  color: AppColors.primary.withValues(alpha: 0.16),
                   blurRadius: 10,
                   spreadRadius: 0,
                   offset: const Offset(0, 2),
@@ -292,12 +296,12 @@ class _TeacherCard extends StatelessWidget {
 
                 SizedBox(
                   width: 31.w,
-                  height: 31.h,
+                  height: 31.w,
                   child: ClipOval(
                     child: Image.network(
                       course.instructorImage,
                       width: 31.w,
-                      height: 31.h,
+                      height: 31.w,
                       fit: BoxFit.cover,
                       errorBuilder:
                           (
@@ -307,7 +311,7 @@ class _TeacherCard extends StatelessWidget {
                           ) {
                             return Container(
                               width: 31.w,
-                              height: 31.h,
+                              height: 31.w,
                               color: AppColors.field,
                               alignment: Alignment.center,
                               child: Icon(
@@ -321,14 +325,14 @@ class _TeacherCard extends StatelessWidget {
                   ),
                 ),
 
-                const SizedBox(width: 5),
+                SizedBox(width: 5.w),
 
                 // ==============================
                 // TEACHER NAME
                 // ==============================
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.only(right: 2),
+                    padding: EdgeInsets.only(right: 2.w),
                     child: Text(
                       'استاد ${course.instructorLastName}',
                       maxLines: 1,

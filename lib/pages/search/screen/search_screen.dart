@@ -1,10 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/network/remote_data.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../models/course.dart';
-import '../../../data/courses_data.dart';
+import '../../../repositories/catalog_repository.dart';
 import '../../home/widgets/course_card.dart';
 
 class SearchScreen extends StatefulWidget {
@@ -32,22 +35,40 @@ class _SearchScreenState extends State<SearchScreen> {
 
   bool _isSearching = false;
 
-  /// منبع اصلی دوره‌ها
-  List<Course> get _courses => CoursesData.courses;
+  /// منبع اصلی دوره‌ها — ابتدا داده‌های آفلاین، سپس پاسخ بک‌اند.
+  List<Course> _courses = const [];
+
+  Timer? _searchDebounce;
+
+  /// شناسه آخرین درخواست تا پاسخ‌های قدیمی نتیجه جدید را خراب نکنند.
+  int _searchRequestId = 0;
 
   @override
   void initState() {
     super.initState();
 
     _loadRecentSearches();
+    _loadCourses();
 
     _searchController.addListener(
       _onSearchChanged,
     );
   }
 
+  Future<void> _loadCourses() async {
+    final result = await RemoteLoader.list<Course>(
+      label: 'search.courses',
+      fetch: CatalogRepository.instance.fetchCourses,
+    );
+
+    if (!mounted) return;
+    setState(() => _courses = result.data);
+  }
+
   @override
   void dispose() {
+    _searchDebounce?.cancel();
+
     _searchController.removeListener(
       _onSearchChanged,
     );
@@ -157,6 +178,8 @@ class _SearchScreenState extends State<SearchScreen> {
     final query =
         _searchController.text.trim();
 
+    _searchDebounce?.cancel();
+
     if (query.isEmpty) {
       setState(() {
         _isSearching = false;
@@ -166,39 +189,36 @@ class _SearchScreenState extends State<SearchScreen> {
       return;
     }
 
-    _performSearch(query);
+    _searchDebounce = Timer(
+      const Duration(milliseconds: 400),
+      () {
+        _performSearch(query);
+      },
+    );
   }
 
-  void _performSearch(
+  /// نتیجه محلی فوراً نمایش داده می‌شود و سپس با پاسخ بک‌اند جایگزین می‌شود.
+  Future<void> _performSearch(
     String query,
-  ) {
-    final normalizedQuery =
-        _normalize(query);
-
-    final results =
-        _courses.where(
-      (course) {
-        final title =
-            _normalize(course.title);
-
-        final instructor =
-            _normalize(
-          course.instructorFullName,
-        );
-
-        return title.contains(
-              normalizedQuery,
-            ) ||
-            instructor.contains(
-              normalizedQuery,
-            );
-      },
-    ).toList();
+  ) async {
+    final requestId = ++_searchRequestId;
 
     setState(() {
       _isSearching = true;
-      _searchResults = results;
+      _searchResults = []; // Clear local results as we fetch from API
     });
+
+    final result = await RemoteLoader.list<Course>(
+      label: 'search.query',
+      fetch: () => CatalogRepository.instance.fetchCourses(
+        search: query,
+      ),
+    );
+
+    // درخواست قدیمی نباید نتیجه جدیدتر را بازنویسی کند.
+    if (!mounted || requestId != _searchRequestId) return;
+
+    setState(() => _searchResults = result.data);
   }
 
   String _normalize(
@@ -659,7 +679,7 @@ class _SearchScreenState extends State<SearchScreen> {
               BoxDecoration(
             color: AppColors
                 .primary
-                .withOpacity(.10),
+                .withValues(alpha: .10),
             borderRadius:
                 BorderRadius.circular(
               8.r,

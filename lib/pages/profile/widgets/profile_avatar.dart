@@ -194,16 +194,16 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
                   height: 55.w,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(16.r),
-                    color: AppColors.sectionBackground.withOpacity(
+                    color: AppColors.sectionBackground.withValues(alpha: 
                       0.88,
                     ),
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.65),
+                      color: Colors.white.withValues(alpha: 0.65),
                       width: 1.2.w,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.14),
+                        color: Colors.black.withValues(alpha: 0.14),
                         blurRadius: 14.r,
                         offset: Offset(0, 6.h),
                       ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mr_cake_project/models/teacher_model.dart';
 import 'package:video_player/video_player.dart';
 
@@ -235,7 +236,7 @@ class _PortfolioItemState
       top: 0,
       left: 0,
       right: 0,
-      height: 150,
+      height: 150.h,
       child: IgnorePointer(
         child: DecoratedBox(
           decoration: BoxDecoration(
@@ -243,7 +244,7 @@ class _PortfolioItemState
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Colors.black.withOpacity(0.55),
+                Colors.black.withValues(alpha: 0.55),
                 Colors.transparent,
               ],
             ),
@@ -258,7 +259,7 @@ class _PortfolioItemState
       bottom: 0,
       left: 0,
       right: 0,
-      height: 280,
+      height: 280.h,
       child: IgnorePointer(
         child: DecoratedBox(
           decoration: BoxDecoration(
@@ -266,8 +267,8 @@ class _PortfolioItemState
               begin: Alignment.bottomCenter,
               end: Alignment.topCenter,
               colors: [
-                Colors.black.withOpacity(0.85),
-                Colors.black.withOpacity(0.25),
+                Colors.black.withValues(alpha: 0.85),
+                Colors.black.withValues(alpha: 0.25),
                 Colors.transparent,
               ],
             ),
@@ -279,24 +280,24 @@ class _PortfolioItemState
 
   Widget _buildCloseButton() {
     return Positioned(
-      top: MediaQuery.paddingOf(context).top + 12,
-      left: 18,
+      top: MediaQuery.paddingOf(context).top + 12.h,
+      left: 18.w,
       child: GestureDetector(
         onTap: () {
           Navigator.of(context).pop();
         },
         child: Container(
-          width: 40,
-          height: 40,
+          width: 40.w,
+          height: 40.w,
           decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.35),
+            color: Colors.black.withValues(alpha: 0.35),
             shape: BoxShape.circle,
           ),
           alignment: Alignment.center,
-          child: const Icon(
+          child: Icon(
             Icons.close_rounded,
             color: Colors.white,
-            size: 24,
+            size: 24.sp,
           ),
         ),
       ),
@@ -305,9 +306,9 @@ class _PortfolioItemState
 
   Widget _buildInfo() {
     return Positioned(
-      left: 20,
-      right: 20,
-      bottom: 28,
+      left: 20.w,
+      right: 20.w,
+      bottom: 28.h,
       child: Directionality(
         textDirection: TextDirection.rtl,
         child: Column(
@@ -321,13 +322,13 @@ class _PortfolioItemState
                 ClipOval(
                   child: Image.network(
                     widget.teacher.profileImage,
-                    width: 46,
-                    height: 46,
+                    width: 46.w,
+                    height: 46.w,
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) {
                       return Container(
-                        width: 46,
-                        height: 46,
+                        width: 46.w,
+                        height: 46.w,
                         color: AppColors.field,
                         alignment: Alignment.center,
                         child: const Icon(
@@ -339,7 +340,7 @@ class _PortfolioItemState
                   ),
                 ),
 
-                const SizedBox(width: 10),
+                SizedBox(width: 10.w),
 
                 Expanded(
                   child: Row(
@@ -350,24 +351,24 @@ class _PortfolioItemState
                           maxLines: 1,
                           overflow:
                               TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontFamily: 'bShabnam',
-                            fontSize: 16,
+                            fontSize: 16.sp,
                             color: Colors.white,
                           ),
                         ),
                       ),
 
                       if (widget.teacher.isVerified)
-                        const Padding(
+                        Padding(
                           padding:
                               EdgeInsets.only(
-                            right: 6,
+                            right: 6.w,
                           ),
                           child: Icon(
                             Icons.verified_rounded,
                             color: Colors.blue,
-                            size: 19,
+                            size: 19.sp,
                           ),
                         ),
                     ],
@@ -376,14 +377,14 @@ class _PortfolioItemState
               ],
             ),
 
-            const SizedBox(height: 12),
+            SizedBox(height: 12.h),
 
             Text(
               widget.item.description,
               textAlign: TextAlign.right,
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: 'Shabnam',
-                fontSize: 15,
+                fontSize: 15.sp,
                 color: Colors.white,
                 height: 1.7,
               ),

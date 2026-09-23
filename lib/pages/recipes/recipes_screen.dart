@@ -2,13 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:mr_cake_project/data/teacher_data.dart';
 import 'package:mr_cake_project/models/teacher_model.dart';
 import 'package:mr_cake_project/pages/recipes/recipe_detail_screen.dart';
+import 'package:mr_cake_project/repositories/catalog_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/network/remote_data.dart';
 import '../../core/theme/app_colors.dart';
-import '../../data/recipes_data.dart';
 import '../../models/recipe.dart';
 
 class RecipesScreen extends StatefulWidget {
@@ -33,17 +33,93 @@ class _RecipesScreenState extends State<RecipesScreen> {
 
   bool _isSearching = false;
 
-  List<Recipe> get _recipes => RecipesData.recipes;
+  List<Recipe> _recipes = []; // Changed to empty list
+
+  List<Teacher> _teachers = []; // Changed to empty list
+
+  /// Pagination for recipes
+  int _currentPage = 1;
+  bool _isLoadingMore = false;
+  bool _hasMoreRecipes = true;
+
+  /// شناسه آخرین درخواست تا پاسخ‌های قدیمی نتیجه جدید را خراب نکنند.
+  int _searchRequestId = 0;
+
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
 
-    _filteredRecipes = List<Recipe>.from(_recipes);
-
     _loadRecentSearches();
+    _loadRecipes(refresh: true); // Initial load with refresh
 
     _searchController.addListener(_onSearchChanged);
+    _scrollController.addListener(_onScroll);
+  }
+
+  Future<void> _loadRecipes({bool refresh = false, String? searchQuery}) async {
+    if (refresh) {
+      _currentPage = 1;
+      _hasMoreRecipes = true;
+      _recipes.clear();
+      _filteredRecipes.clear();
+    }
+
+    if (!_hasMoreRecipes || _isLoadingMore) return;
+
+    setState(() {
+      _isLoadingMore = true;
+    });
+
+    try {
+      // Fetch recipes
+      final recipesResult = await RemoteLoader.list<Recipe>(
+        label: 'recipes.list.page$_currentPage',
+        seed: const [], // Added missing seed parameter
+        fetch: () => CatalogRepository.instance.fetchRecipes(page: _currentPage, search: searchQuery),
+      );
+
+      // Fetch teachers (only once or on refresh, as they are not paginated per recipe fetch)
+      if (refresh) {
+        final teachersResult = await RemoteLoader.list<Teacher>(
+          label: 'recipes.teachers',
+          seed: const [], // Added missing seed parameter
+          fetch: CatalogRepository.instance.fetchTeachers,
+        );
+        if (mounted) {
+          setState(() {
+            _teachers = teachersResult.data;
+          });
+        }
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        final filteredNewRecipes = recipesResult.data
+            .where((recipe) => recipe.featured == true && recipe.courseId == null)
+            .toList();
+        _recipes.addAll(filteredNewRecipes);
+        _filteredRecipes = List.from(_recipes); // Update filtered list too
+        _currentPage++;
+        _hasMoreRecipes = filteredNewRecipes.isNotEmpty; // Check if there are any *filtered* new recipes
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingMore = false;
+        });
+      }
+    }
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels == _scrollController.position.maxScrollExtent &&
+        !_isLoadingMore &&
+        _hasMoreRecipes) {
+      _loadRecipes(searchQuery: _searchController.text.trim());
+    }
   }
 
   @override
@@ -51,9 +127,11 @@ class _RecipesScreenState extends State<RecipesScreen> {
     _searchDebounce?.cancel();
 
     _searchController.removeListener(_onSearchChanged);
+    _scrollController.removeListener(_onScroll);
 
     _searchController.dispose();
     _searchFocusNode.dispose();
+    _scrollController.dispose();
 
     super.dispose();
   }
@@ -141,10 +219,12 @@ class _RecipesScreenState extends State<RecipesScreen> {
     });
   }
 
-  void _performSearch(String query) {
+  /// نتیجه محلی فوراً نمایش داده می‌شود و سپس با پاسخ بک‌اند جایگزین می‌شود.
+  Future<void> _performSearch(String query) async {
     final normalizedQuery = _normalize(query);
 
-    final results = _recipes.where((recipe) {
+    // Local filtering (optional, can be removed if API handles all filtering)
+    final localResults = _recipes.where((recipe) {
       final title = _normalize(recipe.title);
 
       final description = _normalize(recipe.description);
@@ -158,12 +238,22 @@ class _RecipesScreenState extends State<RecipesScreen> {
           teacherName.contains(normalizedQuery);
     }).toList();
 
+    final requestId = ++_searchRequestId;
+
     if (!mounted) return;
 
     setState(() {
       _isSearching = true;
-      _filteredRecipes = results;
+      _filteredRecipes = localResults;
     });
+
+    // Fetch from API with search query, refresh to get first page of search results
+    await _loadRecipes(refresh: true, searchQuery: query);
+
+    // Old request should not overwrite newer results (still relevant if API response is slow)
+    if (!mounted || requestId != _searchRequestId) return;
+
+    // _filteredRecipes is already updated by _loadRecipes
   }
 
   String _normalize(String value) {
@@ -217,7 +307,7 @@ class _RecipesScreenState extends State<RecipesScreen> {
   }
 
   Teacher? _getTeacher(int teacherId) {
-    for (final teacher in TeacherData.teachers) {
+    for (final teacher in _teachers) {
       if (teacher.id == teacherId) {
         return teacher;
       }
@@ -232,6 +322,7 @@ class _RecipesScreenState extends State<RecipesScreen> {
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: CustomScrollView(
+          controller: _scrollController,
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           slivers: [
             SliverToBoxAdapter(child: _buildHeader()),
@@ -256,6 +347,13 @@ class _RecipesScreenState extends State<RecipesScreen> {
               ),
               sliver: _buildRecipesGrid(),
             ),
+            if (_isLoadingMore)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.all(16.h),
+                  child: const Center(child: CircularProgressIndicator()),
+                ),
+              ),
           ],
         ),
       ),
@@ -291,7 +389,7 @@ class _RecipesScreenState extends State<RecipesScreen> {
               width: 44.w,
               height: 44.w,
               decoration: BoxDecoration(
-                color: AppColors.premium.withOpacity(0.12),
+                color: AppColors.premium.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(14.r),
                 border: Border.all(color: AppColors.premium, width: 1.5.w),
               ),
