@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mr_cake_project/models/course_intro_video.dart';
 
 import '../core/network/api_client.dart';
 import '../core/network/api_config.dart';
@@ -320,6 +321,30 @@ class CatalogRepository {
         return CourseDetails.fromJson(map);
       });
 
+  /// Introduction teasers: every published course whose detail payload has a
+  /// `video_trailer`.
+  ///
+  /// There is no dedicated intro-videos endpoint. The list comes from
+  /// `GET /api/v1/courses/` and the trailer from `GET /api/v1/courses/{id}/`.
+  Future<List<CourseIntroVideo>> fetchCourseIntroVideos({int page = 1}) =>
+      _cached<List<CourseIntroVideo>>('course-intros:p$page', () async {
+        final courses = await fetchCourses(page: page);
+        if (courses.isEmpty) return const <CourseIntroVideo>[];
+
+        final items = await Future.wait(
+          courses.map((course) async {
+            final details = await fetchCourseDetails(course.id);
+            if (details == null || !details.hasIntroVideo) return null;
+            return CourseIntroVideo.fromCourseDetails(
+              course: course,
+              details: details,
+            );
+          }),
+        );
+
+        return items.whereType<CourseIntroVideo>().toList(growable: false);
+      });
+
   /// `GET /api/v1/courses/{id}/my_progress/` (auth)
   Future<Map<String, dynamic>> fetchCourseProgress(int id) =>
       _object(ApiEndpoints.courseMyProgress(id));
@@ -481,6 +506,7 @@ class CatalogRepository {
       query: {
         'page': page,
         if (search != null && search.isNotEmpty) 'search': search,
+        'is_active': true, // Added to ensure only active recipes are fetched
       },
     );
     return result.map(Recipe.fromJson);

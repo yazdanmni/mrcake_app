@@ -203,6 +203,7 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
                 SizedBox(height: 11.h),
 
                 _IntroVideo(
+                  key: ValueKey<String>(details.introVideo),
                   imageUrl: details.introImage.isNotEmpty
                       ? details.introImage
                       : widget.course.image,
@@ -952,7 +953,7 @@ class _IntroVideo extends StatefulWidget {
   final String imageUrl;
   final String videoUrl;
 
-  const _IntroVideo({required this.imageUrl, required this.videoUrl});
+  const _IntroVideo({required this.imageUrl, required this.videoUrl, required ValueKey<String> key});
 
   @override
   State<_IntroVideo> createState() => _IntroVideoState();
@@ -964,6 +965,9 @@ class _IntroVideoState extends State<_IntroVideo> {
   bool _initialized = false;
   bool _hasError = false;
   bool _isLoading = true;
+
+  /// Guards a slow initialize against a later [didUpdateWidget] / dispose.
+  int _loadGeneration = 0;
 
   // نمایش کنترل‌های ویدیو
   bool _showControls = true;
@@ -980,22 +984,52 @@ class _IntroVideoState extends State<_IntroVideo> {
     _initializeVideo();
   }
 
+  @override
+  void didUpdateWidget(covariant _IntroVideo oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.videoUrl != widget.videoUrl) {
+      _initializeVideo();
+    }
+  }
+
   // ==========================================================================
   // INITIALIZE
   // ==========================================================================
 
+  Future<void> _resetController() async {
+    _controlsTimer?.cancel();
+    final previous = _controller;
+    _controller = null;
+    if (previous != null) {
+      previous.removeListener(_videoListener);
+      await previous.dispose();
+    }
+  }
+
   Future<void> _initializeVideo() async {
+    final generation = ++_loadGeneration;
     final url = widget.videoUrl.trim();
 
+    await _resetController();
+
+    if (!mounted || generation != _loadGeneration) return;
+
+    // Seeded [CourseDetails] has no trailer yet. Keep the poster up until
+    // `GET /api/v1/courses/{id}/` fills `video_trailer`.
     if (url.isEmpty) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          _hasError = true;
-        });
-      }
+      setState(() {
+        _initialized = false;
+        _isLoading = false;
+        _hasError = false;
+      });
       return;
     }
+
+    setState(() {
+      _initialized = false;
+      _isLoading = true;
+      _hasError = false;
+    });
 
     try {
       final uri = Uri.tryParse(url);
@@ -1009,7 +1043,7 @@ class _IntroVideoState extends State<_IntroVideo> {
       // an error where a video should be. See [ResilientVideoLoader].
       final controller = await ResilientVideoLoader.initialize(url);
 
-      if (!mounted) {
+      if (!mounted || generation != _loadGeneration) {
         await controller.dispose();
         return;
       }
@@ -1033,7 +1067,7 @@ class _IntroVideoState extends State<_IntroVideo> {
       debugPrint('STACK: $stackTrace');
       debugPrint('================================================');
 
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
 
       setState(() {
         _isLoading = false;
@@ -1286,6 +1320,7 @@ class _IntroVideoState extends State<_IntroVideo> {
 
   @override
   void dispose() {
+    _loadGeneration++;
     _controlsTimer?.cancel();
 
     _controller?.removeListener(_videoListener);
@@ -1571,7 +1606,7 @@ class _IntroVideoState extends State<_IntroVideo> {
           // ==================================================================
           // ERROR
           // ==================================================================
-          if (_hasError)
+          if (_hasError && widget.videoUrl.trim().isNotEmpty)
             Center(
               child: Padding(
                 padding: EdgeInsets.symmetric(horizontal: 20.w),

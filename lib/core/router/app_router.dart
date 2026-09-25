@@ -18,8 +18,11 @@ import '../../pages/teacher/teachers_list_screen.dart';
 import '../../repositories/auth_repository.dart';
 import '../../pages/courses/courses_screen.dart';
 import '../../pages/courses/course_categories_screen.dart';
-
-/// Route names, used for `RouteSettings` so the whole navigation stack is
+import '../../pages/course_learning/introduction_videos_screen.dart';
+import '../../pages/course_details/course_details_screen.dart'; // New import
+import '../../models/course.dart'; // New import
+import '../../models/course_details.dart'; // New import
+// Route names, used for `RouteSettings` so the whole navigation stack is
 /// readable in the devtools / logs.
 class AppRoutes {
   AppRoutes._();
@@ -41,9 +44,10 @@ class AppRoutes {
   static const String recipes = '/recipes';
   static const String cart = '/cart';
   static const String orders = '/orders';
+  static const String introductionVideos = '/introduction-videos';
+  static const String courseDetails = '/course/details';
 }
-
-/// The single place where the auth flow decides which screen comes next.
+// The single place where the auth flow decides which screen comes next.
 ///
 ///   splash ──▶ login ──┬─(phone exists)──▶ password ──┬─(ok)──────────▶ main
 ///                      │                              ├─(otp login)───▶ otp
@@ -274,5 +278,18 @@ class AppRouter {
         context,
         const OrdersScreen(),
         AppRoutes.orders,
+      );
+
+  static Future<void> toIntroductionVideos(BuildContext context) => _push(
+        context,
+        const IntroductionVideosScreen(),
+        AppRoutes.introductionVideos,
+      );
+
+  static Future<void> toCourseDetails(BuildContext context, Course course) =>
+      _push(
+        context,
+        CourseDetailsScreen(course: course),
+        AppRoutes.courseDetails,
       );
 }

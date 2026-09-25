@@ -48,6 +48,7 @@ class ExploreVideo {
 
   /// `thumbnail_media` id — needed to resolve [thumbnail].
   final int? thumbnailMediaId;
+  final int? courseId;
 
   const ExploreVideo({
     required this.id,
@@ -64,6 +65,7 @@ class ExploreVideo {
     this.isActive = true,
     this.videoMediaId,
     this.thumbnailMediaId,
+    this.courseId, // Added courseId to constructor
   });
 
   String get instructorFullName {
@@ -110,6 +112,7 @@ class ExploreVideo {
       isActive: Json.asBool(json['is_active'], fallback: true),
       videoMediaId: Json.asInt(json['video_media']),
       thumbnailMediaId: Json.asInt(json['thumbnail_media']),
+      courseId: Json.asInt(json['course_id']),
     );
   }
 
@@ -130,6 +133,7 @@ class ExploreVideo {
       isActive: isActive,
       videoMediaId: videoMediaId,
       thumbnailMediaId: thumbnailMediaId,
+      courseId: courseId, // Pass courseId
     );
   }
 
@@ -155,6 +159,7 @@ class ExploreVideo {
       isActive: isActive,
       videoMediaId: videoMediaId,
       thumbnailMediaId: thumbnailMediaId,
+      courseId: courseId, // Pass courseId
     );
   }
 
@@ -174,6 +179,7 @@ class ExploreVideo {
       'is_active': isActive,
       if (videoMediaId != null) 'video_media': videoMediaId,
       if (thumbnailMediaId != null) 'thumbnail_media': thumbnailMediaId,
+      if (courseId != null) 'course_id': courseId,
     };
   }
 

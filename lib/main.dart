@@ -4,8 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mr_cake_project/core/app_config.dart';
 import 'package:mr_cake_project/core/network/media_host_overrides.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mr_cake_project/pages/splash/splash_screen.dart';
-  
+
 void main() {
   // Must run before anything creates an HttpClient (i.e. before the first
   // `Image.network`). Off by default — see the class docs for why, and what the
@@ -14,7 +15,7 @@ void main() {
     HttpOverrides.global = MediaHostHttpOverrides();
   }
 
-  runApp(const MyApp());
+  runApp(const ProviderScope(child: MyApp()));
 }
 
 class MyApp extends StatelessWidget {

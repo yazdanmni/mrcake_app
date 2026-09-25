@@ -1,5 +1,6 @@
 import '../core/network/api_client.dart';
 import '../core/network/api_config.dart';
+import 'course_details.dart'; // New import
 
 /// A course as returned by `GET /api/v1/courses/` (`CourseList`) and by the
 /// featured / latest / free / paid / best_selling / my_courses endpoints.
@@ -196,6 +197,33 @@ class Course {
       level: json['level']?.toString(),
       hasDiscount: Json.asBool(json['has_discount']),
       totalDurationSeconds: Json.asInt(json['total_duration_seconds']) ?? 0,
+    );
+  }
+
+  factory Course.fromCourseDetails(CourseDetails details) {
+    return Course(
+      id: details.courseId,
+      image: details.introImage,
+      title: details.title.isNotEmpty
+          ? details.title
+          : (details.shortDescription ?? details.description),
+      instructorFirstName: '', // CourseDetails does not have these directly
+      instructorLastName: '',
+      instructorImage: '',
+      instructorId: details.teacherProfileId ?? 0, // Using teacherProfileId
+      price: '', // CourseDetails does not have price directly
+      currency: '',
+      lessons: details.resolvedLessonsCount.toString(),
+      duration: details.totalDurationMinutes.toString(), // Using totalDurationMinutes
+      studentsCount: details.studentsCount,
+      categoryIds: const [], // CourseDetails does not have categoryIds directly
+      type: CourseType.free, // Defaulting to free, can be derived from other fields if needed
+      access: CourseAccess.free, // Defaulting to free
+      shortDescription: details.shortDescription,
+      rating: details.rating,
+      reviewsCount: details.reviewsCount,
+      level: details.level,
+      totalDurationSeconds: details.totalDurationSeconds,
     );
   }
 

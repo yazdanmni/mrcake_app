@@ -1,11 +1,12 @@
 import '../core/network/api_client.dart';
 import '../core/network/api_config.dart';
 import 'course.dart';
+import 'course_details.dart';
 
 /// Promo card content for the "معرفی دوره ها" carousel on the home screen.
 ///
-/// There is no dedicated endpoint for these cards, so they are derived from
-/// the course list through [CourseIntroVideo.fromCourse].
+/// Built from `GET /api/v1/courses/` plus each course's
+/// `GET /api/v1/courses/{id}/` trailer (`video_trailer`).
 class CourseIntroVideo {
   final String thumbnail;
   final String title;
@@ -25,6 +26,12 @@ class CourseIntroVideo {
   /// برای رفتن به صفحه جزئیات دوره
   final int? courseId;
 
+  /// آدرس تیزر (`CourseDetail.video_trailer`). خالی یعنی هنوز hydrate نشده.
+  final String videoUrl;
+
+  /// خود دوره برای باز کردن `CourseDetailsScreen` بدون از دست دادن عنوان و استاد.
+  final Course? course;
+
   const CourseIntroVideo({
     required this.thumbnail,
     required this.title,
@@ -35,6 +42,8 @@ class CourseIntroVideo {
     required this.courseDuration,
     required this.studentsCount,
     this.courseId,
+    this.videoUrl = '',
+    this.course,
   });
 
   String get teacherFullName {
@@ -56,6 +65,30 @@ class CourseIntroVideo {
       courseDuration: course.duration,
       studentsCount: course.studentsCount.toString(),
       courseId: course.id,
+      course: course,
+    );
+  }
+
+  /// Combines the list row with `GET /api/v1/courses/{id}/` so the card can
+  /// show the real teaser (`video_trailer` + `intro_duration_seconds`).
+  factory CourseIntroVideo.fromCourseDetails({
+    required Course course,
+    required CourseDetails details,
+  }) {
+    return CourseIntroVideo(
+      thumbnail: details.introImage.isNotEmpty
+          ? details.introImage
+          : course.image,
+      title: course.title,
+      teacherFirstName: course.instructorFirstName,
+      teacherLastName: course.instructorLastName,
+      teacherAvatar: course.instructorImage,
+      duration: formatSeconds(details.introDurationSeconds),
+      courseDuration: course.duration,
+      studentsCount: course.studentsCount.toString(),
+      courseId: course.id,
+      videoUrl: details.introVideo,
+      course: course,
     );
   }
 
@@ -86,8 +119,9 @@ class CourseIntroVideo {
             0;
 
     return CourseIntroVideo(
-      thumbnail:
-          _mediaUrl(json['thumbnail'] ?? json['image']),
+      thumbnail: _mediaUrl(json['thumbnail'] ?? json['image']),
+
+      videoUrl: _mediaUrl(json['video_url'] ?? json['video_trailer']),
 
       title: Json.asString(json['title']) ?? '',
 
@@ -124,6 +158,7 @@ class CourseIntroVideo {
       'course_duration': courseDuration,
       'students_count': studentsCount,
       if (courseId != null) 'course_id': courseId,
+      if (videoUrl.isNotEmpty) 'video_url': videoUrl,
     };
   }
 

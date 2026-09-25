@@ -148,27 +148,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _openIntroVideo(CourseIntroVideo video) {
-    final id = video.courseId;
-    if (id == null) return;
-
-    for (final course in _courses) {
-      if (course.id == id) {
-        _openCourse(course);
-        return;
-      }
-    }
-  }
-
-  List<CourseIntroVideo> get _introVideos {
-    // If there are no courses, return an empty list.
-    if (_courses.isEmpty) return const [];
-
-    return _courses
-        .take(6)
-        .map(CourseIntroVideo.fromCourse)
-        .toList(growable: false);
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -285,19 +264,12 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                           _ViewAllButton(
-                            onTap: () => AppRouter.toCourses(context),
+                            onTap: () => AppRouter.toIntroductionVideos(context),
                           ),
                         ],
                       ),
                     ),
 
-                    Padding(
-                      padding: EdgeInsets.symmetric(vertical: 15.h),
-                      child: CourseIntroVideos(
-                        videos: _introVideos,
-                        onVideoTap: _openIntroVideo,
-                      ),
-                    ),
                   ],
                 ),
               ),

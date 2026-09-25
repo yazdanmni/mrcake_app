@@ -10,6 +10,7 @@ import 'course.dart';
 /// backend keys (`chapters[].lessons[]`, `video_trailer`, …).
 class CourseDetails {
   final int courseId;
+  final String title;
   final String description;
   final String introVideo;
   final String introImage;
@@ -49,6 +50,7 @@ class CourseDetails {
 
   const CourseDetails({
     required this.courseId,
+    this.title = '',
     required this.description,
     required this.introVideo,
     required this.introImage,
@@ -105,6 +107,7 @@ class CourseDetails {
   }) {
     return CourseDetails(
       courseId: course.id,
+      title: course.title,
       description: course.shortDescription ?? '',
       introVideo: '',
       introImage: course.image,
@@ -126,6 +129,7 @@ class CourseDetails {
   CourseDetails copyWithChapters(List<CourseChapter> items) {
     return CourseDetails(
       courseId: courseId,
+      title: title,
       description: description,
       introVideo: introVideo,
       introImage: introImage,
@@ -160,6 +164,8 @@ class CourseDetails {
           Json.asInt(json['course_id']) ??
               Json.asInt(json['id']) ??
               0,
+
+      title: Json.asString(json['title']) ?? '',
 
       description:
           Json.asString(json['description']) ??
@@ -212,6 +218,7 @@ class CourseDetails {
   Map<String, dynamic> toJson() {
     return {
       'course_id': courseId,
+      'title': title,
       'description': description,
       'intro_video': introVideo,
       'intro_image': introImage,
