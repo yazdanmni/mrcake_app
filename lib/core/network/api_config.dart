@@ -80,6 +80,9 @@ class ApiEndpoints {
   static const String users = 'v1/accounts/users/';
   static const String usersMe = 'v1/accounts/users/me/';
   static const String teachers = 'v1/accounts/teachers/';
+
+  /// نمونه کارهای استاد — **the one the app renders.** `image` / `video` are
+  /// direct urls and the row carries `student_name` + `title`. Public.
   static const String teacherPortfolios = 'v1/accounts/teacher-portfolios/';
   static const String teacherPortfoliosApply =
       'v1/accounts/teacher-portfolios/apply/';
@@ -144,6 +147,12 @@ class ApiEndpoints {
   // ---------------------------------------------------------------------------
 
   static const String exploreVideos = 'v1/content/explore-videos/';
+
+  /// ⚠️ **Not what the app renders.** This returns the same
+  /// `TeacherPortfolioItem` type as [teacherPortfolios] but stores only a `media`
+  /// **id** with no cover for a video, and on the live server it answers
+  /// `count: 0`. Kept as a faithful binding; `fetchTeacherPortfolio` reads
+  /// [teacherPortfolios] instead.
   static const String contentTeacherPortfolio = 'v1/content/teacher-portfolio/';
 
   static String exploreVideo(int id) => '$exploreVideos$id/';

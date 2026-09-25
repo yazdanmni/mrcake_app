@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mr_cake_project/models/teacher_model.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../widgets/video_thumbnail_view.dart';
 
 class TeacherPortfolioItemCard extends StatelessWidget {
   final TeacherPortfolioItem item;
@@ -13,6 +14,24 @@ class TeacherPortfolioItemCard extends StatelessWidget {
     required this.item,
     this.onTap,
   });
+
+  /// The neutral panel shown when there is no picture to paint.
+  ///
+  /// A **video** work reaches here only while its frame is still being pulled out
+  /// of the file, or when that fails: the backend sends a video row with
+  /// `image: null`, so there is no cover to fall back on. The play badge still
+  /// marks it as playable.
+  Widget _buildPlaceholder() {
+    return Container(
+      color: AppColors.field,
+      alignment: Alignment.center,
+      child: Icon(
+        Icons.image_outlined,
+        color: AppColors.textSecondary,
+        size: 30.sp,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -27,22 +46,14 @@ class TeacherPortfolioItemCard extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              Image.network(
-                item.image,
-                fit: BoxFit.cover,
-                filterQuality: FilterQuality.medium,
-                errorBuilder: (_, __, ___) {
-                  return Container(
-                    color: AppColors.field,
-                    alignment: Alignment.center,
-                    child: Icon(
-                      Icons.image_outlined,
-                      color:
-                          AppColors.textSecondary,
-                      size: 30.sp,
-                    ),
-                  );
-                },
+              // A picture work draws its cover; a video work has none, so a frame
+              // is pulled out of the video itself. Either way this is the same box
+              // the plain `Image.network` used to fill, and it falls back to the
+              // same panel.
+              VideoThumbnailView(
+                imageUrl: item.image,
+                videoUrl: item.isVideo ? (item.videoUrl ?? '') : '',
+                placeholder: _buildPlaceholder(),
               ),
 
               if (item.isVideo)

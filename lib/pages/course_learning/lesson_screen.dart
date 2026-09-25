@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:mr_cake_project/core/media/resilient_video_loader.dart';
 import 'package:video_player/video_player.dart';
 
 import 'package:mr_cake_project/core/network/remote_data.dart';
@@ -698,18 +699,17 @@ class _IntroVideoState extends State<_IntroVideo> {
         );
       }
 
-      final controller =
-          VideoPlayerController.networkUrl(uri);
-
-      _controller = controller;
-
-      await controller.initialize();
+      // Not a bare `.initialize()`: on a weak device the first attempt can fail
+      // for a reason a different display mode fixes, and the user would just see
+      // an error where a video should be. See [ResilientVideoLoader].
+      final controller = await ResilientVideoLoader.initialize(url);
 
       if (!mounted) {
         await controller.dispose();
         return;
       }
 
+      _controller = controller;
       controller.addListener(_videoListener);
 
       setState(() {

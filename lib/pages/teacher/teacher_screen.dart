@@ -46,11 +46,16 @@ class _TeacherScreenState extends State<TeacherScreen> {
           teacher = await CatalogRepository.instance.fetchTeacher(
             widget.teacherId!,
           );
+
         } else {
           teacher = await CatalogRepository.instance.fetchSingleVerifiedTeacher();
+
         }
 
-        if (teacher == null) return null;
+        if (teacher == null) {
+
+          return null;
+        }
 
         // نمونه‌کارها از یک اندپوینت جداگانه می‌آیند.
         final portfolio = await CatalogRepository.instance
@@ -488,7 +493,7 @@ class _TeacherScreenState extends State<TeacherScreen> {
               if (_teacher != null) {
                 AppRouter.toTeacherCourses(
                   context,
-                  _teacher!.id,
+                  _teacher!.userId,
                   _teacher!.fullName,
                 );
               } else {

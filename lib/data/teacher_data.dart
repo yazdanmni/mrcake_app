@@ -9,6 +9,7 @@ class TeacherData {
       id: 1,
       firstName: 'مریم',
       lastName: 'احمدی',
+      userId: 2,
       profileImage:
           'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=500',
       courseCount: 8,
@@ -79,6 +80,7 @@ class TeacherData {
       id: 2,
       firstName: 'علی',
       lastName: 'رضایی',
+      userId: 3,
       profileImage: 'https://images.unsplash.com/photo-1559620192-032c4bc4674e?w=900',
       courseCount: 3,
       experienceYears: 5,

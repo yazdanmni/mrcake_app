@@ -6,8 +6,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/network/remote_data.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../data/courses_data.dart';
 import '../../../models/course.dart';
 import '../../../repositories/catalog_repository.dart';
+import '../../course_details/course_details_screen.dart';
 import '../../home/widgets/course_card.dart';
 
 class SearchScreen extends StatefulWidget {
@@ -58,6 +60,7 @@ class _SearchScreenState extends State<SearchScreen> {
   Future<void> _loadCourses() async {
     final result = await RemoteLoader.list<Course>(
       label: 'search.courses',
+      seed: CoursesData.courses,
       fetch: CatalogRepository.instance.fetchCourses,
     );
 
@@ -208,8 +211,16 @@ class _SearchScreenState extends State<SearchScreen> {
       _searchResults = []; // Clear local results as we fetch from API
     });
 
+    final normalizedQuery = _normalize(query);
+    final filteredSeed = CoursesData.courses.where((course) {
+      final title = _normalize(course.title);
+      final instructor = _normalize(course.instructorFullName);
+      return title.contains(normalizedQuery) || instructor.contains(normalizedQuery);
+    }).toList(growable: false);
+
     final result = await RemoteLoader.list<Course>(
       label: 'search.query',
+      seed: filteredSeed,
       fetch: () => CatalogRepository.instance.fetchCourses(
         search: query,
       ),
@@ -819,8 +830,11 @@ class _SearchScreenState extends State<SearchScreen> {
                 width: cardWidth,
                 height: cardHeight,
                 onTap: () {
-                  // بعداً صفحه جزئیات دوره
-                  // اینجا متصل می‌شود.
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => CourseDetailsScreen(course: course),
+                    ),
+                  );
                 },
               ),
             );

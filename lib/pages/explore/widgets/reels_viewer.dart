@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../../core/media/resilient_video_loader.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../models/explore_video.dart';
 
@@ -117,6 +118,13 @@ class _ReelItemState extends State<_ReelItem> {
   bool _showPlayIcon = false;
   bool _isRetrying = false;
 
+  /// A portfolio item can be a picture rather than a video: the «هنرجوها»
+  /// gallery shares this viewer, and a work with no `videoUrl` is something to
+  /// look at, not a playback failure to report. Set in [_initializePlayer] when
+  /// there is a thumbnail but no video, and rendered as a still image with no
+  /// player chrome at all.
+  bool _isImageOnly = false;
+
   String _errorMessage = '';
 
   Timer? _hidePlayIconTimer;
@@ -136,31 +144,43 @@ class _ReelItemState extends State<_ReelItem> {
     final String url = widget.video.videoUrl.trim();
 
     if (url.isEmpty) {
+      // An image work: show it, do not call it a broken video.
+      if (widget.video.thumbnail.trim().isNotEmpty) {
+        if (!mounted) return;
+
+        setState(() {
+          _isImageOnly = true;
+        });
+
+        return;
+      }
+
       _setError('آدرس ویدیو خالی است.');
       return;
     }
 
     debugPrint('VIDEO INIT → $url');
 
-    final VideoPlayerController controller =
-        VideoPlayerController.networkUrl(
-      Uri.parse(url),
-      videoPlayerOptions: VideoPlayerOptions(
-        mixWithOthers: false,
-      ),
-    );
-
-    _controller = controller;
-
-    controller.addListener(_onPlayerChanged);
-
     try {
-      await controller.initialize();
+      // A ladder of display modes rather than a single attempt, so a weak device
+      // gets several chances before this screen declares a playback failure. See
+      // [ResilientVideoLoader].
+      final VideoPlayerController controller =
+          await ResilientVideoLoader.initialize(
+        url,
+        onFailure: (Object error, StackTrace stackTrace) {
+          debugPrint('VIDEO ATTEMPT FAILED: $error');
+        },
+      );
 
       if (!mounted || _disposed) {
         await controller.dispose();
         return;
       }
+
+      _controller = controller;
+
+      controller.addListener(_onPlayerChanged);
 
       await controller.setLooping(true);
 
@@ -383,6 +403,26 @@ class _ReelItemState extends State<_ReelItem> {
   }
 
   Widget _buildVideo() {
+    if (_isImageOnly) {
+      return Positioned.fill(
+        child: Image.network(
+          widget.video.thumbnail,
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) {
+            return Container(
+              color: Colors.black,
+              alignment: Alignment.center,
+              child: const Icon(
+                Icons.image_outlined,
+                color: Colors.white,
+                size: 50,
+              ),
+            );
+          },
+        ),
+      );
+    }
+
     if (_hasError) {
       return _buildErrorState();
     }
@@ -595,6 +635,11 @@ class _ReelItemState extends State<_ReelItem> {
     );
   }
 
+  /// The chip needs at least one name to say anything at all.
+  bool get _hasInstructor =>
+      widget.video.instructorFirstName.trim().isNotEmpty ||
+      widget.video.instructorLastName.trim().isNotEmpty;
+
   Widget _buildBottomInfo() {
     return Positioned(
       left: 20.w,
@@ -606,10 +651,14 @@ class _ReelItemState extends State<_ReelItem> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _InstructorChip(
-              video: widget.video,
-            ),
-            SizedBox(height: 12.h),
+            // Dropped rather than rendered empty: the chip prints
+            // «استاد {lastName}», which would read «استاد » with no name.
+            if (_hasInstructor) ...[
+              _InstructorChip(
+                video: widget.video,
+              ),
+              SizedBox(height: 12.h),
+            ],
             Text(
               widget.video.title,
               maxLines: 2,

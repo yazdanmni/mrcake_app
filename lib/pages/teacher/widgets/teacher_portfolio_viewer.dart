@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mr_cake_project/models/teacher_model.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../../core/media/resilient_video_loader.dart';
 import '../../../core/theme/app_colors.dart';
 
 class TeacherPortfolioViewer extends StatefulWidget {
@@ -80,6 +81,10 @@ class _TeacherPortfolioViewerState
             key: ValueKey(item.id),
             teacher: widget.teacher,
             item: item,
+            // A `PageView` keeps the neighbouring pages built, so without this
+            // two adjacent videos would both be playing — and both making
+            // noise. Only the page on screen is allowed to play.
+            isActive: index == _currentIndex,
           );
         },
       ),
@@ -91,10 +96,14 @@ class _PortfolioItem extends StatefulWidget {
   final Teacher teacher;
   final TeacherPortfolioItem item;
 
+  /// Whether this page is the one on screen. Only an active page plays.
+  final bool isActive;
+
   const _PortfolioItem({
     super.key,
     required this.teacher,
     required this.item,
+    required this.isActive,
   });
 
   @override
@@ -109,35 +118,75 @@ class _PortfolioItemState
   bool _isInitialized = false;
   bool _hasError = false;
 
+  /// Guards against two `initialize()` calls racing on a fast swipe.
+  bool _isInitializing = false;
+
   @override
   void initState() {
     super.initState();
 
-    if (widget.item.isVideo) {
+    // Built lazily: a video starts buffering only once its page is the visible
+    // one, so a gallery of videos does not download all of them at once.
+    if (widget.item.isVideo && widget.isActive) {
       _initializeVideo();
     }
   }
 
+  @override
+  void didUpdateWidget(covariant _PortfolioItem oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (!widget.item.isVideo) return;
+
+    final bool becameActive = widget.isActive && !oldWidget.isActive;
+    final bool becameInactive = !widget.isActive && oldWidget.isActive;
+
+    if (becameActive) {
+      // First time on this page: build the player. Swiping back later just
+      // resumes it, so there is no second spinner.
+      if (_controller == null) {
+        _initializeVideo();
+      } else if (_isInitialized) {
+        _play();
+      }
+    } else if (becameInactive) {
+      _pause();
+    }
+  }
+
   Future<void> _initializeVideo() async {
+    if (_isInitializing) return;
+
     final String url =
         (widget.item.videoUrl ?? '').trim();
 
     if (url.isEmpty) {
+      // A row with neither an image nor a video: there is nothing to play, so
+      // report a missing work rather than a playback failure.
       setState(() {
         _hasError = true;
       });
       return;
     }
 
-    final controller =
-        VideoPlayerController.networkUrl(
-      Uri.parse(url),
-    );
-
-    _controller = controller;
+    _isInitializing = true;
 
     try {
-      await controller.initialize();
+      // Not a bare `VideoPlayerController.networkUrl(...).initialize()`: this
+      // walks a ladder of display modes so a weak device gets several chances.
+      // See [ResilientVideoLoader].
+      final VideoPlayerController controller =
+          await ResilientVideoLoader.initialize(
+        url,
+        onFailure: (Object error, StackTrace stackTrace) {
+          // The reason a video will not play is only ever visible here — the
+          // screens used to swallow it with `catch (_)`.
+          debugPrint('[VIDEO] attempt failed for $url: $error');
+        },
+      );
+
+      _controller = controller;
+      _isInitializing = false;
 
       if (!mounted) {
         await controller.dispose();
@@ -145,17 +194,48 @@ class _PortfolioItemState
       }
 
       await controller.setLooping(true);
-      await controller.play();
+
+      // The user may have swiped away while this was buffering — only the page
+      // on screen is allowed to start playing.
+      if (widget.isActive) {
+        await controller.play();
+      }
 
       setState(() {
         _isInitialized = true;
       });
-    } catch (_) {
+    } catch (error) {
+      _isInitializing = false;
+
+      debugPrint('[VIDEO] every attempt failed for $url: $error');
+
       if (!mounted) return;
 
       setState(() {
         _hasError = true;
       });
+    }
+  }
+
+  Future<void> _play() async {
+    final VideoPlayerController? controller = _controller;
+    if (controller == null || !_isInitialized) return;
+
+    try {
+      await controller.play();
+    } catch (_) {
+      // The controller was torn down between the check and the call.
+    }
+  }
+
+  Future<void> _pause() async {
+    final VideoPlayerController? controller = _controller;
+    if (controller == null || !_isInitialized) return;
+
+    try {
+      await controller.pause();
+    } catch (_) {
+      // The controller was torn down between the check and the call.
     }
   }
 
@@ -179,22 +259,32 @@ class _PortfolioItemState
     );
   }
 
+  /// The neutral "no picture here" panel.
+  Widget _buildPlaceholder() {
+    return Container(
+      color: Colors.black,
+      alignment: Alignment.center,
+      child: const Icon(
+        Icons.image_outlined,
+        color: Colors.white,
+        size: 50,
+      ),
+    );
+  }
+
   Widget _buildMedia() {
     if (!widget.item.isVideo) {
+      final String url = widget.item.image.trim();
+
+      // `Image.network('')` resolves against the app's base uri, so it fires a
+      // pointless request for the app itself and only then falls back to the
+      // error builder. Short-circuit instead.
+      if (url.isEmpty) return _buildPlaceholder();
+
       return Image.network(
-        widget.item.image,
+        url,
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) {
-          return Container(
-            color: Colors.black,
-            alignment: Alignment.center,
-            child: const Icon(
-              Icons.image_outlined,
-              color: Colors.white,
-              size: 50,
-            ),
-          );
-        },
+        errorBuilder: (_, _, _) => _buildPlaceholder(),
       );
     }
 
@@ -315,67 +405,7 @@ class _PortfolioItemState
           crossAxisAlignment:
               CrossAxisAlignment.stretch,
           children: [
-            Row(
-              mainAxisAlignment:
-                  MainAxisAlignment.start,
-              children: [
-                ClipOval(
-                  child: Image.network(
-                    widget.teacher.profileImage,
-                    width: 46.w,
-                    height: 46.w,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) {
-                      return Container(
-                        width: 46.w,
-                        height: 46.w,
-                        color: AppColors.field,
-                        alignment: Alignment.center,
-                        child: const Icon(
-                          Icons.person_outline_rounded,
-                          color: AppColors.textSecondary,
-                        ),
-                      );
-                    },
-                  ),
-                ),
-
-                SizedBox(width: 10.w),
-
-                Expanded(
-                  child: Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          'استاد ${widget.teacher.fullName}',
-                          maxLines: 1,
-                          overflow:
-                              TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontFamily: 'bShabnam',
-                            fontSize: 16.sp,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-
-                      if (widget.teacher.isVerified)
-                        Padding(
-                          padding:
-                              EdgeInsets.only(
-                            right: 6.w,
-                          ),
-                          child: Icon(
-                            Icons.verified_rounded,
-                            color: Colors.blue,
-                            size: 19.sp,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+            _buildTeacherRow(),
 
             SizedBox(height: 12.h),
 
@@ -392,6 +422,68 @@ class _PortfolioItemState
           ],
         ),
       ),
+    );
+  }
+
+  /// The owner's avatar + name, shown above the description.
+  Widget _buildTeacherRow() {
+    final Teacher teacher = widget.teacher;
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.start,
+      children: [
+        ClipOval(
+          child: Image.network(
+            teacher.profileImage,
+            width: 46.w,
+            height: 46.w,
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) {
+              return Container(
+                width: 46.w,
+                height: 46.w,
+                color: AppColors.field,
+                alignment: Alignment.center,
+                child: const Icon(
+                  Icons.person_outline_rounded,
+                  color: AppColors.textSecondary,
+                ),
+              );
+            },
+          ),
+        ),
+
+        SizedBox(width: 10.w),
+
+        Expanded(
+          child: Row(
+            children: [
+              Flexible(
+                child: Text(
+                  'استاد ${teacher.fullName}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: 'bShabnam',
+                    fontSize: 16.sp,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+
+              if (teacher.isVerified)
+                Padding(
+                  padding: EdgeInsets.only(right: 6.w),
+                  child: Icon(
+                    Icons.verified_rounded,
+                    color: Colors.blue,
+                    size: 19.sp,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

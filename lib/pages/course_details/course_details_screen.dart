@@ -4,14 +4,19 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:mr_cake_project/core/network/api_client.dart';
 import 'package:mr_cake_project/core/network/remote_data.dart';
 import 'package:mr_cake_project/core/session/session_manager.dart';
 import 'package:mr_cake_project/core/theme/app_colors.dart';
-import 'package:mr_cake_project/data/course_details_data.dart';
+import 'package:mr_cake_project/core/utils/currency_format.dart';
+import 'package:mr_cake_project/models/coupon_model.dart';
 import 'package:mr_cake_project/models/course.dart';
+import 'package:mr_cake_project/repositories/catalog_repository.dart';
+import 'package:mr_cake_project/repositories/support_repository.dart';
 import 'package:mr_cake_project/models/course_details.dart';
 import 'package:mr_cake_project/pages/authpage/login_screen.dart';
-import 'package:mr_cake_project/repositories/catalog_repository.dart';
+import 'package:mr_cake_project/core/media/resilient_video_loader.dart';
+import 'package:mr_cake_project/pages/course_learning/course_learning_screen.dart';
 import 'package:video_player/video_player.dart';
 
 class CourseDetailsScreen extends StatefulWidget {
@@ -34,8 +39,9 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
   void initState() {
     super.initState();
 
-    // داده آفلاین بلافاصله نمایش داده می‌شود، سپس پاسخ بک‌اند جایگزین می‌شود.
-    details = CourseDetailsData.getByCourseId(widget.course.id);
+    // داده اولیه (seed) از اطلاعات پایه دوره‌ای که از لیست آمده ساخته می‌شود.
+    // سپس پاسخ کامل بک‌اند با جزئیات، فصل‌ها و دروس جایگزین آن می‌شود.
+    details = CourseDetails.seedFrom(widget.course);
 
     isLoggedIn = SessionManager.instance.isLoggedIn;
     isStudent = details.isEnrolled;
@@ -43,13 +49,26 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
     _loadDetails();
   }
 
+  String _stripHtml(String html) {
+  return html
+      .replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n')
+      .replaceAll(RegExp(r'</p>', caseSensitive: false), '\n')
+      .replaceAll(RegExp(r'<[^>]*>'), '')
+      .replaceAll('&nbsp;', ' ')
+      .replaceAll('&amp;', '&')
+      .replaceAll('&lt;', '<')
+      .replaceAll('&gt;', '>')
+      .replaceAll('&zwnj;', ' ')
+      .replaceAll(RegExp(r'\n{3,}'), '\n\n')
+      .trim();
+}
+
   Future<void> _loadDetails() async {
     final result = await RemoteLoader.value<CourseDetails>(
       label: 'course.details',
       seed: details,
-      fetch: () => CatalogRepository.instance.fetchCourseDetails(
-        widget.course.id,
-      ),
+      fetch: () =>
+          CatalogRepository.instance.fetchCourseDetails(widget.course.id),
     );
 
     if (!mounted) return;
@@ -61,6 +80,20 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
       details = loaded;
       if (loaded.isEnrolled) isStudent = true;
     });
+  }
+
+  /// «بعد از صفحه جزئیات دوره» — the next screen is the course content.
+  ///
+  /// This screen is only ever the last stop for a **pending** request; a student
+  /// goes on to [CourseLearningScreen]. The `details` already loaded here are
+  /// handed over so the learning screen renders its first frame from real data
+  /// instead of a seed.
+  void _openLearning(BuildContext context) {
+    CourseLearningScreen.open(
+      context,
+      course: widget.course,
+      details: details,
+    );
   }
 
   @override
@@ -120,6 +153,7 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
                 // STATS
                 // ========================================================
                 _CourseStats(course: widget.course),
+                
 
                 SizedBox(height: 23.h),
 
@@ -131,7 +165,7 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
                 SizedBox(height: 9.h),
 
                 _DescriptionBox(
-                  description: details.description,
+                  description: _stripHtml(details.description ),
                   expanded: showFullDescription,
                   onMoreTap: () {
                     setState(() {
@@ -194,6 +228,7 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: 25.w),
                   child: _RegisterButton(
+                    course: widget.course,
                     isStudent: isStudent,
 
                     // نوع دسترسی واقعی دوره
@@ -229,6 +264,11 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
                         isStudent = true;
                       });
                     },
+
+                    // ============================================================
+                    // رفتن به محتوای دوره (course_learning_screen)
+                    // ============================================================
+                    onOpenCourse: () => _openLearning(context),
                   ),
                 ),
 
@@ -690,6 +730,7 @@ class _DescriptionBox extends StatelessWidget {
           Text(
             description,
             textAlign: TextAlign.right,
+            textDirection: TextDirection.rtl,
             maxLines: expanded ? null : 3,
             overflow: expanded ? TextOverflow.visible : TextOverflow.ellipsis,
             style: TextStyle(
@@ -963,17 +1004,17 @@ class _IntroVideoState extends State<_IntroVideo> {
         throw Exception('Invalid video URL: $url');
       }
 
-      final controller = VideoPlayerController.networkUrl(uri);
-
-      _controller = controller;
-
-      await controller.initialize();
+      // Not a bare `.initialize()`: on a weak device the first attempt can fail
+      // for a reason a different display mode fixes, and the user would just see
+      // an error where a video should be. See [ResilientVideoLoader].
+      final controller = await ResilientVideoLoader.initialize(url);
 
       if (!mounted) {
         await controller.dispose();
         return;
       }
 
+      _controller = controller;
       controller.addListener(_videoListener);
 
       setState(() {
@@ -1792,7 +1833,9 @@ class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.18),
                       shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.55)),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.55),
+                      ),
                     ),
                     alignment: Alignment.center,
                     child: Icon(
@@ -1943,7 +1986,12 @@ class _PriceRow extends StatelessWidget {
 // REGISTER BUTTON
 // ============================================================================
 
-class _RegisterButton extends StatelessWidget {
+// ============================================================================
+// REGISTER BUTTON
+// ============================================================================
+
+class _RegisterButton extends StatefulWidget {
+  final Course course;
   final bool isStudent;
   final bool isFree;
   final bool isLoggedIn;
@@ -1952,22 +2000,245 @@ class _RegisterButton extends StatelessWidget {
   final VoidCallback onGoToRegister;
 
   /// ثبت‌نام نهایی دوره رایگان
-  /// بعداً این قسمت می‌تواند به API وصل شود.
   final VoidCallback? onFreeCourseRegistered;
 
   /// پرداخت دوره پولی
-  /// فعلاً فقط دیالوگ نمایش داده می‌شود.
-  /// بعداً API پرداخت اینجا قرار می‌گیرد.
   final VoidCallback? onPaymentSuccess;
 
+  /// رفتن به صفحه محتوای دوره (`course_learning_screen.dart`).
+  ///
+  /// Supplied by the parent state because it owns the loaded `CourseDetails`,
+  /// which the learning screen needs for its first frame.
+  final VoidCallback? onOpenCourse;
+
   const _RegisterButton({
+    required this.course,
     required this.isStudent,
     required this.isFree,
     required this.isLoggedIn,
     required this.onGoToRegister,
     this.onFreeCourseRegistered,
     this.onPaymentSuccess,
+    this.onOpenCourse,
   });
+
+  @override
+  State<_RegisterButton> createState() => _RegisterButtonState();
+}
+
+class _RegisterButtonState extends State<_RegisterButton> {
+  // ========================================================================
+  // Helpers
+  // ========================================================================
+
+  /// Drops every cached value that depends on enrolment state so the next
+  /// navigation to ProfileScreen -> My Courses or CourseDetails re-fetches
+  /// from the server and shows the newly-purchased course.
+  static void _invalidateEnrolmentCaches() {
+    CatalogRepository.invalidateCatalogueCache();
+    RemoteCache.invalidate('course-detail:');
+    RemoteCache.invalidate('courses-enrollments');
+    RemoteCache.invalidate('courses-my_courses');
+  }
+
+  /// Parses an integer amount into a user-friendly price label like
+  /// `2,500,000 تومان`.
+  ///
+  /// Delegates to `core/utils/currency_format.dart` so the ticket body, the
+  /// coupon breakdown and the orders screens never disagree on formatting.
+  static String _formatToman(int amount) => formatToman(amount);
+
+  /// Creates the order and reports what the backend says it costs.
+  ///
+  /// The **created order is the only source of truth** for "is this free or
+  /// paid". It cannot be the client-side coupon maths: the validator
+  /// (`POST v1/discounts/apply/validate/`) is documented with no response body,
+  /// so a 100 % coupon can decode to an empty map and look exactly like "no
+  /// discount at all". Deciding from that is how a registration whose final
+  /// amount was zero used to end up filing a request it did not need.
+  ///
+  /// `course_ids` is the mandatory field and the only supported way to register
+  /// a course — `v1/courses/enrollments/` is read-only, there is no POST on it.
+  Future<({bool ok, int subtotal, int discount, int total})> _createOrder({
+    required BuildContext context,
+    String? couponCode,
+  }) async {
+    final String? code = (couponCode != null && couponCode.trim().isNotEmpty)
+        ? couponCode.trim()
+        : null;
+
+    try {
+      final Map<String, dynamic> order = await ShopRepository.instance
+          .createOrder(
+        courseIds: [widget.course.id],
+        gateway: PaymentGateway.mock,
+        couponCode: code,
+        description: 'ثبت نام دوره: ${widget.course.title}',
+      );
+
+      final int subtotal =
+          Json.asInt(order['subtotal']) ?? widget.course.priceAsInt;
+      final int discount = Json.asInt(order['discount_amount']) ?? 0;
+      // `total_amount` is already net of the discount (subtotal - discount).
+      final int total = Json.asInt(order['total_amount']) ?? subtotal;
+
+      return (
+        ok: true,
+        subtotal: subtotal < 0 ? 0 : subtotal,
+        discount: discount < 0 ? 0 : discount,
+        total: total < 0 ? 0 : total,
+      );
+    } catch (e, stack) {
+      debugPrint('Order failed for course ${widget.course.id}: $e');
+      debugPrintStack(stackTrace: stack);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            margin: EdgeInsets.all(16.w),
+            backgroundColor: AppColors.error,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14.r),
+            ),
+            content: Text(
+              'ثبت‌نام ناموفق بود. لطفاً دوباره تلاش کنید.',
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                fontFamily: 'BShabnam',
+                fontSize: 13.sp,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        );
+      }
+
+      return (ok: false, subtotal: 0, discount: 0, total: 0);
+    }
+  }
+
+  /// Runs the whole registration and branches on what the order actually costs.
+  ///
+  /// * **`total <= 0`** — the course is free, or a coupon covered it. The backend
+  ///   turns the order into an enrollment, the course shows up in «دوره‌های من»
+  ///   (read straight from `GET v1/courses/enrollments/`), and **nothing else is
+  ///   sent**: no ticket, no cart row. The app never activates a course on the
+  ///   device by itself.
+  /// * **`total > 0`** — a paid request. The order is the record that shows up in
+  ///   «سفارش ها» with status `pending`; a support ticket is filed on the user's
+  ///   behalf so the admin can reach them, and the course waits in the cart.
+  ///   Once the order is marked paid the backend creates the enrollment and the
+  ///   course appears in the profile.
+  Future<({bool ok, bool wasFree, int? ticketId})> _submitRegistration({
+    required BuildContext context,
+    String? couponCode,
+  }) async {
+    final order = await _createOrder(context: context, couponCode: couponCode);
+    if (!order.ok) return (ok: false, wasFree: false, ticketId: null);
+
+    // Drop the enrolment caches either way: the order changed what the profile
+    // and this screen will read next.
+    _invalidateEnrolmentCaches();
+
+    if (order.total <= 0) {
+      return (ok: true, wasFree: true, ticketId: null);
+    }
+
+    final int? ticketId = await _fileEnrollmentTicket(
+      amount: order.total,
+      discountAmount: order.discount,
+      couponCode: couponCode,
+    );
+
+    return (ok: true, wasFree: false, ticketId: ticketId);
+  }
+
+  /// Files the support ticket that tells the admin who is asking, and parks the
+  /// course in the cart.
+  ///
+  /// Both are **best-effort**: the order already exists by the time this runs, so
+  /// a failure here must not turn a registered request into an error screen. The
+  /// ticket is the only channel carrying the user's contact details, so its
+  /// failure is logged and surfaces as a `null` id in the result dialog.
+  Future<int?> _fileEnrollmentTicket({
+    required int amount,
+    required int discountAmount,
+    String? couponCode,
+  }) async {
+    final user = SessionManager.instance.user;
+    final String fullName = user?.displayName ?? '';
+    final String phone = user?.phoneNumber ?? '';
+    final String code = (couponCode ?? '').trim();
+
+    // The name rides in the title as well as the body: the tickets list only
+    // renders the title, and the user asked to see their identity there.
+    final String title = _truncate(
+      'ثبت نام دوره «${widget.course.title}»'
+      '${fullName.isEmpty ? '' : ' — $fullName'}',
+      250,
+    );
+
+    final String message = <String>[
+      'درخواست ثبت نام در دوره «${widget.course.title}»',
+      '',
+      'نام و نام خانوادگی: ${fullName.isEmpty ? '—' : fullName}',
+      'شماره تماس: ${phone.isEmpty ? '—' : phone}',
+      '',
+      'دوره: ${widget.course.title} (شناسه ${widget.course.id})',
+      'قیمت دوره: ${_formatToman(widget.course.priceAsInt)}',
+      if (code.isNotEmpty) 'کد تخفیف: $code',
+      if (discountAmount > 0) 'مبلغ تخفیف: ${_formatToman(discountAmount)}',
+      'مبلغ قابل پرداخت: ${_formatToman(amount)}',
+    ].join('\n');
+
+    try {
+      final subjectId =
+          await SupportRepository.instance.resolveNewPurchaseSubjectId();
+
+      final created = await SupportRepository.instance.createTicket(
+        title: title,
+        message: message,
+        subjectId: subjectId,
+        priority: 'high',
+      );
+
+      try {
+        await ShopRepository.instance.addToCart(courseId: widget.course.id);
+      } catch (error) {
+        debugPrint('addToCart failed for course ${widget.course.id}: $error');
+      }
+
+      return Json.asInt(created['id']);
+    } catch (e, stack) {
+      debugPrint('Enrollment ticket failed for course ${widget.course.id}: $e');
+      debugPrintStack(stackTrace: stack);
+      return null;
+    }
+  }
+
+  /// Clips [value] to [max] characters. The API caps a ticket title at 250.
+  static String _truncate(String value, int max) =>
+      value.length <= max ? value : '${value.substring(0, max - 1)}…';
+
+  /// A student tapping «شما دانشجوی این دوره هستید» opens the course content.
+  ///
+  /// The parent supplies [onOpenCourse] so the learning screen starts from the
+  /// already-loaded `CourseDetails` instead of re-fetching them from scratch.
+  /// The fallback keeps the button alive if the callback is ever omitted.
+  void _openCourseScreen(BuildContext context) {
+    final callback = widget.onOpenCourse;
+    if (callback != null) {
+      callback();
+      return;
+    }
+
+    CourseLearningScreen.open(context, course: widget.course);
+  }
+
+  // ========================================================================
+  // Build
+  // ========================================================================
 
   @override
   Widget build(BuildContext context) {
@@ -1977,31 +2248,38 @@ class _RegisterButton extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: isStudent
-              ? null
-              : () {
-                  if (!isLoggedIn) {
-                    _showLoginRequiredDialog(context);
-                    return;
-                  }
+          onTap: () {
+            // A student re-opens the same screen (see [_openCourseScreen]);
+            // everybody else starts a registration.
+            if (widget.isStudent) {
+              _openCourseScreen(context);
+              return;
+            }
 
-                  if (isFree) {
-                    _showFreeCourseDialog(context);
-                  } else {
-                    _showPaidCourseDialog(context);
-                  }
-                },
+            if (!widget.isLoggedIn) {
+              _showLoginRequiredDialog(context);
+              return;
+            }
+
+            if (widget.isFree) {
+              _showFreeCourseConfirmDialog(context);
+            } else {
+              _showCouponAndCheckoutDialog(context);
+            }
+          },
           borderRadius: BorderRadius.circular(16.r),
           child: Ink(
             decoration: BoxDecoration(
-              color: isStudent
+              color: widget.isStudent
                   ? AppColors.primary.withValues(alpha: 0.55)
                   : AppColors.primary,
               borderRadius: BorderRadius.circular(16.r),
             ),
             child: Center(
               child: Text(
-                isStudent ? 'شما دانشجوی این دوره هستید' : 'ثبت نام دوره',
+                widget.isStudent
+                    ? 'شما دانشجوی این دوره هستید'
+                    : 'ثبت نام دوره',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontFamily: 'bshabnam',
@@ -2016,9 +2294,9 @@ class _RegisterButton extends StatelessWidget {
     );
   }
 
-  // ==========================================================================
+  // ========================================================================
   // LOGIN / REGISTER REQUIRED
-  // ==========================================================================
+  // ========================================================================
 
   void _showLoginRequiredDialog(BuildContext context) {
     showDialog(
@@ -2061,8 +2339,7 @@ class _RegisterButton extends StatelessWidget {
                 child: ElevatedButton(
                   onPressed: () {
                     Navigator.of(dialogContext).pop();
-
-                    onGoToRegister();
+                    widget.onGoToRegister();
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
@@ -2088,11 +2365,23 @@ class _RegisterButton extends StatelessWidget {
     );
   }
 
-  // ==========================================================================
-  // FREE COURSE DIALOG
-  // ==========================================================================
+  // ========================================================================
+  // FREE COURSE — confirmation then server-side order + enrollment
+  //
+  // This is the **single** "nothing to pay" registration flow. It is used for
+  //   * a course whose access is `free`, and
+  //   * a paid course whose discount code covered 100 % of the price
+  //     ([couponCode] is then forwarded to the order so the backend can record
+  //     which coupon was used).
+  //
+  // Keeping one implementation is what makes a 100 % coupon behave *exactly*
+  // like a free course — same confirmation, same checkbox, same success dialog.
+  // ========================================================================
 
-  void _showFreeCourseDialog(BuildContext context) {
+  void _showFreeCourseConfirmDialog(
+    BuildContext context, {
+    String? couponCode,
+  }) {
     bool isChecked = false;
 
     showDialog(
@@ -2100,7 +2389,7 @@ class _RegisterButton extends StatelessWidget {
       barrierDismissible: true,
       builder: (dialogContext) {
         return StatefulBuilder(
-          builder: (context, setState) {
+          builder: (ctx, setState) {
             return Directionality(
               textDirection: TextDirection.rtl,
               child: AlertDialog(
@@ -2123,7 +2412,12 @@ class _RegisterButton extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'این دوره رایگان است. آیا می‌خواهید در این دوره ثبت نام کنید؟',
+                      // The wording has to be honest about *why* there is
+                      // nothing to pay: a genuinely free course, or a coupon
+                      // that covered the whole price.
+                      couponCode == null
+                          ? 'این دوره رایگان است. آیا می‌خواهید دانشجوی این دوره شوید؟'
+                          : 'کد تخفیف شما کل هزینه این دوره را پوشش داد. آیا می‌خواهید دانشجوی این دوره شوید؟',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontFamily: 'bshabnam',
@@ -2135,9 +2429,9 @@ class _RegisterButton extends StatelessWidget {
 
                     SizedBox(height: 18.h),
 
-                    // ----------------------------------------------------------
+                    // ------------------------------------------------------
                     // CONFIRM CHECKBOX
-                    // ----------------------------------------------------------
+                    // ------------------------------------------------------
                     InkWell(
                       onTap: () {
                         setState(() {
@@ -2173,7 +2467,7 @@ class _RegisterButton extends StatelessWidget {
 
                             Expanded(
                               child: Text(
-                                'بله، می‌خواهم در این دوره ثبت نام کنم',
+                                'بله، می‌خواهم دانشجوی این دوره شوم',
                                 style: TextStyle(
                                   fontFamily: 'bshabnam',
                                   fontSize: 13.sp,
@@ -2194,17 +2488,32 @@ class _RegisterButton extends StatelessWidget {
                     height: 50.h,
                     child: ElevatedButton(
                       onPressed: isChecked
-                          ? () {
+                          ? () async {
                               Navigator.of(dialogContext).pop();
+                              final result = await _submitRegistration(
+                                context: ctx,
+                                couponCode: couponCode,
+                              );
+                              if (!ctx.mounted) return;
+                              if (!result.ok) return;
 
-                              // فعلاً ثبت‌نام را شبیه‌سازی می‌کنیم.
-                              _showFreeSuccessDialog(context);
+                              // The order has the last word: a coupon the client
+                              // could not size may still have covered everything,
+                              // and vice versa.
+                              if (result.wasFree) {
+                                _showFreeSuccessDialog(ctx);
+                              } else {
+                                _showEnrollmentRequestDialog(
+                                  ctx,
+                                  ticketId: result.ticketId,
+                                );
+                              }
                             }
                           : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
-                        disabledBackgroundColor: AppColors.primary.withValues(alpha: 
-                          0.25,
+                        disabledBackgroundColor: AppColors.primary.withValues(
+                          alpha: 0.25,
                         ),
                         elevation: 0,
                         shape: RoundedRectangleBorder(
@@ -2230,9 +2539,461 @@ class _RegisterButton extends StatelessWidget {
     );
   }
 
-  // ==========================================================================
-  // FREE COURSE SUCCESS
-  // ==========================================================================
+  // ========================================================================
+  // PAID COURSE — coupon step → 100% free enroll → or payment
+  // ========================================================================
+
+  void _showCouponAndCheckoutDialog(BuildContext rootContext) {
+    final TextEditingController couponController = TextEditingController();
+    final FocusNode couponFocus = FocusNode();
+
+    final int originalAmount = widget.course.priceAsInt;
+
+    CouponValidation? couponResult;
+    bool validatingCoupon = false;
+    bool completingEnrollment = false;
+    String? couponErrorMsg;
+
+    showDialog(
+      context: rootContext,
+      barrierDismissible: true,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            final CouponValidation cv = couponResult ??
+                CouponValidation.invalid('').applyToAmount(originalAmount);
+
+            final bool isFreeFinal = cv.isFree;
+
+            return Directionality(
+              textDirection: TextDirection.rtl,
+              child: AlertDialog(
+                backgroundColor: AppColors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(22.r),
+                ),
+                contentPadding: EdgeInsets.fromLTRB(22.w, 24.h, 22.w, 18.h),
+                title: Text(
+                  'خرید دوره',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'bshabnam',
+                    fontSize: 19.sp,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.black,
+                  ),
+                ),
+                content: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // ------------------------------------------------------
+                      // Intro text
+                      // ------------------------------------------------------
+                      Text(
+                        'برای ثبت نام، در صورت داشتن کد تخفیف آن را وارد کنید. اگر کد کل هزینه دوره را پوشش دهد، ثبت نام رایگان انجام می‌شود؛ در غیر این صورت درخواست شما برای بررسی ارسال و دوره تا تأیید در «سبد خرید» می‌ماند.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: 'bshabnam',
+                          fontSize: 13.5.sp,
+                          height: 1.8,
+                          color: AppColors.black.withValues(alpha: 0.65),
+                        ),
+                      ),
+
+                      SizedBox(height: 20.h),
+
+                      // ------------------------------------------------------
+                      // Coupon field
+                      // ------------------------------------------------------
+                      Directionality(
+                        textDirection: TextDirection.ltr,
+                        child: TextField(
+                          controller: couponController,
+                          focusNode: couponFocus,
+                          textInputAction: TextInputAction.done,
+                          textCapitalization: TextCapitalization.characters,
+                          style: TextStyle(
+                            fontFamily: 'BShabnam',
+                            fontSize: 15.sp,
+                            letterSpacing: 1.4,
+                            color: AppColors.black,
+                          ),
+                          textAlign: TextAlign.left,
+                          cursorColor: AppColors.primary,
+                          decoration: InputDecoration(
+                            filled: true,
+                            fillColor: AppColors.field,
+                            hintText: 'کد تخفیف خود را وارد کنید',
+                            hintStyle: TextStyle(
+                              fontFamily: 'shabnam',
+                              fontSize: 13.sp,
+                              letterSpacing: 0,
+                              color: AppColors.textSecondary,
+                            ),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 16.w,
+                              vertical: 14.h,
+                            ),
+                            suffixIcon: IconButton(
+                              icon: validatingCoupon
+                                  ? SizedBox(
+                                      width: 18.w,
+                                      height: 18.w,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.w,
+                                        color: AppColors.primary,
+                                      ),
+                                    )
+                                  : Icon(
+                                      Icons.local_activity_outlined,
+                                      size: 21.sp,
+                                      color: AppColors.primary,
+                                    ),
+                              onPressed: validatingCoupon
+                                  ? null
+                                  : () async {
+                                      final code = couponController.text.trim();
+                                      if (code.isEmpty) {
+                                        setDialogState(() {
+                                          couponResult = null;
+                                          couponErrorMsg = null;
+                                        });
+                                        return;
+                                      }
+                                      couponFocus.unfocus();
+                                      setDialogState(() {
+                                        validatingCoupon = true;
+                                        couponErrorMsg = null;
+                                      });
+                                      final CouponValidation res =
+                                          await ShopRepository.instance
+                                              .validateCouponForAmount(
+                                        code: code,
+                                        amount: originalAmount,
+                                        courseId: widget.course.id,
+                                      );
+                                      if (!ctx.mounted) return;
+                                      setDialogState(() {
+                                        validatingCoupon = false;
+                                        if (res.valid) {
+                                          couponResult = res;
+                                          couponErrorMsg = null;
+                                        } else {
+                                          couponResult = null;
+                                          couponErrorMsg =
+                                              'کد تخفیف وارد شده معتبر نیست یا منقضی شده است.';
+                                        }
+                                      });
+                                    },
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14.r),
+                              borderSide: BorderSide(
+                                color: AppColors.border,
+                                width: 1.5.w,
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14.r),
+                              borderSide: BorderSide(
+                                color: AppColors.border,
+                                width: 1.5.w,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14.r),
+                              borderSide: BorderSide(
+                                color: AppColors.primary,
+                                width: 2.w,
+                              ),
+                            ),
+                            errorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14.r),
+                              borderSide: BorderSide(
+                                color: AppColors.error,
+                                width: 1.5.w,
+                              ),
+                            ),
+                            errorStyle: TextStyle(
+                              fontFamily: 'shabnam',
+                              fontSize: 12.sp,
+                              color: AppColors.error,
+                            ),
+                          ),
+                          onSubmitted: (_) async {
+                            if (validatingCoupon) return;
+                            final code = couponController.text.trim();
+                            if (code.isEmpty) {
+                              setDialogState(() {
+                                couponResult = null;
+                                couponErrorMsg = null;
+                              });
+                              return;
+                            }
+                            couponFocus.unfocus();
+                            setDialogState(() {
+                              validatingCoupon = true;
+                              couponErrorMsg = null;
+                            });
+                            final CouponValidation res = await ShopRepository
+                                .instance
+                                .validateCouponForAmount(
+                              code: code,
+                              amount: originalAmount,
+                              courseId: widget.course.id,
+                            );
+                            if (!ctx.mounted) return;
+                            setDialogState(() {
+                              validatingCoupon = false;
+                              if (res.valid) {
+                                couponResult = res;
+                                couponErrorMsg = null;
+                              } else {
+                                couponResult = null;
+                                couponErrorMsg =
+                                    'کد تخفیف وارد شده معتبر نیست یا منقضی شده است.';
+                              }
+                            });
+                          },
+                        ),
+                      ),
+
+                      if (couponErrorMsg != null) ...[
+                        SizedBox(height: 8.h),
+                        Text(
+                          couponErrorMsg!,
+                          textAlign: TextAlign.right,
+                          style: TextStyle(
+                            fontFamily: 'shabnam',
+                            fontSize: 12.5.sp,
+                            color: AppColors.error,
+                          ),
+                        ),
+                      ],
+
+                      if (couponResult != null && couponResult!.valid) ...[
+                        SizedBox(height: 10.h),
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 14.w,
+                            vertical: 10.h,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(12.r),
+                            border: Border.all(
+                              color: AppColors.primary.withValues(alpha: 0.35),
+                              width: 1.w,
+                            ),
+                          ),
+                          child: Row(
+                            textDirection: TextDirection.rtl,
+                            children: [
+                              Icon(
+                                Icons.verified_outlined,
+                                size: 19.sp,
+                                color: AppColors.primary,
+                              ),
+                              SizedBox(width: 8.w),
+                              Expanded(
+                                child: Text(
+                                  couponResult!.is100Percent
+                                      ? 'کد تخفیف شما کل هزینه دوره را پوشش می‌دهد.'
+                                      : 'کد تخفیف ${couponResult!.code} با موفقیت اعمال شد.',
+                                  textAlign: TextAlign.right,
+                                  style: TextStyle(
+                                    fontFamily: 'BShabnam',
+                                    fontSize: 12.5.sp,
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+
+                      SizedBox(height: 22.h),
+
+                      // ------------------------------------------------------
+                      // Price breakdown
+                      // ------------------------------------------------------
+                      _PriceLine(
+                        label: 'قیمت دوره',
+                        value: _formatToman(originalAmount),
+                        isSubtracted: false,
+                      ),
+
+                      if (cv.discountAmount > 0) ...[
+                        SizedBox(height: 10.h),
+                        _PriceLine(
+                          label: 'تخفیف اعمال شده',
+                          value: '- ${_formatToman(cv.discountAmount)}',
+                          isSubtracted: true,
+                        ),
+                      ],
+
+                      const Divider(height: 26),
+
+                      _PriceLine(
+                        label: 'مبلغ قابل پرداخت',
+                        value: _formatToman(cv.finalAmount),
+                        emphasize: true,
+                        isFinal: isFreeFinal,
+                      ),
+                    ],
+                  ),
+                ),
+                actionsPadding: EdgeInsets.fromLTRB(18.w, 6.h, 18.w, 18.h),
+                actions: [
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52.h,
+                    child: ElevatedButton(
+                      onPressed: completingEnrollment
+                          ? null
+                          : () async {
+                              couponFocus.unfocus();
+
+                              // Validate first (if user typed a code but did
+                              // not yet press the "apply" icon).
+                              final String typed = couponController.text.trim();
+                              CouponValidation? candidate = couponResult;
+
+                              if (typed.isNotEmpty &&
+                                  (candidate == null ||
+                                      candidate.code != typed)) {
+                                setDialogState(() {
+                                  validatingCoupon = true;
+                                });
+                                candidate = await ShopRepository.instance
+                                    .validateCouponForAmount(
+                                  code: typed,
+                                  amount: originalAmount,
+                                  courseId: widget.course.id,
+                                );
+                                if (!ctx.mounted) return;
+                                setDialogState(() {
+                                  validatingCoupon = false;
+                                  if (candidate!.valid) {
+                                    couponResult = candidate;
+                                    couponErrorMsg = null;
+                                  } else {
+                                    couponResult = null;
+                                    couponErrorMsg =
+                                        'کد تخفیف معتبر نیست. بدون کد ادامه می‌دهید؟';
+                                    // Keep `candidate` as a zero-discount
+                                    // validation so we can still proceed.
+                                    candidate = CouponValidation.invalid(typed)
+                                        .applyToAmount(originalAmount);
+                                  }
+                                });
+                              }
+
+                              candidate ??= CouponValidation.invalid('')
+                                  .applyToAmount(originalAmount);
+
+                              // Only a coupon the API accepted is forwarded to
+                              // the order; an invalid code must never block the
+                              // "continue without a coupon" path.
+                              final String? appliedCode =
+                                  candidate!.valid && candidate!.code.isNotEmpty
+                                      ? candidate!.code
+                                      : null;
+
+                              // A coupon that covers the whole price turns the
+                              // course into a free one, so it runs the exact
+                              // same registration steps as a free course.
+                              if (candidate!.isFree) {
+                                Navigator.of(dialogContext).pop();
+                                _showFreeCourseConfirmDialog(
+                                  rootContext,
+                                  couponCode: appliedCode,
+                                );
+                                return;
+                              }
+
+                              setDialogState(() {
+                                completingEnrollment = true;
+                              });
+
+                              // One call decides everything: it creates the order
+                              // and branches on what the backend says it costs.
+                              // A zero total is a free enrollment and files
+                              // nothing extra — that is what stops a coupon that
+                              // covers the whole price from sending a request.
+                              final result = await _submitRegistration(
+                                context: ctx,
+                                couponCode: appliedCode,
+                              );
+
+                              if (!ctx.mounted) return;
+                              setDialogState(() {
+                                completingEnrollment = false;
+                              });
+
+                              if (!result.ok) return;
+
+                              Navigator.of(dialogContext).pop();
+
+                              if (result.wasFree) {
+                                _showFreeSuccessDialog(rootContext);
+                              } else {
+                                _showEnrollmentRequestDialog(
+                                  rootContext,
+                                  ticketId: result.ticketId,
+                                );
+                              }
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        disabledBackgroundColor: AppColors.primary.withValues(
+                          alpha: 0.4,
+                        ),
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14.r),
+                        ),
+                      ),
+                      child: completingEnrollment
+                          ? Center(
+                              child: SizedBox(
+                                width: 22.w,
+                                height: 22.w,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.w,
+                                  color: AppColors.white,
+                                ),
+                              ),
+                            )
+                          : Text(
+                              isFreeFinal
+                                  ? 'ثبت نام رایگان فوری'
+                                  : 'ارسال درخواست ثبت نام',
+                              style: TextStyle(
+                                fontFamily: 'bshabnam',
+                                fontSize: 16.sp,
+                                color: AppColors.white,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // ========================================================================
+  // Success dialogs
+  // ========================================================================
 
   void _showFreeSuccessDialog(BuildContext context) {
     showDialog(
@@ -2280,7 +3041,7 @@ class _RegisterButton extends StatelessWidget {
                 SizedBox(height: 10.h),
 
                 Text(
-                  'این دوره به حساب کاربری شما اضافه شد.',
+                  'این دوره به حساب کاربری شما اضافه شد و اکنون در بخش «دوره‌های من» پروفایل شما قابل مشاهده است.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontFamily: 'bshabnam',
@@ -2299,7 +3060,15 @@ class _RegisterButton extends StatelessWidget {
                     onPressed: () {
                       Navigator.of(dialogContext).pop();
 
-                      onFreeCourseRegistered?.call();
+                      widget.onFreeCourseRegistered?.call();
+                      widget.onPaymentSuccess?.call();
+
+                      // The course is the user's now, so the flow continues into
+                      // the course content (`course_learning_screen.dart`) — this
+                      // is the "after the course details screen" step of a free
+                      // or 100 % coupon registration. Nothing is activated
+                      // on-device: the enrollment came from the backend.
+                      widget.onOpenCourse?.call();
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
@@ -2309,7 +3078,7 @@ class _RegisterButton extends StatelessWidget {
                       ),
                     ),
                     child: Text(
-                      'متوجه شدم',
+                      'شروع یادگیری',
                       style: TextStyle(
                         fontFamily: 'bshabnam',
                         fontSize: 14.sp,
@@ -2326,88 +3095,15 @@ class _RegisterButton extends StatelessWidget {
     );
   }
 
-  // ==========================================================================
-  // PAID COURSE DIALOG
-  // ==========================================================================
-
-  void _showPaidCourseDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      barrierDismissible: true,
-      builder: (dialogContext) {
-        return Directionality(
-          textDirection: TextDirection.rtl,
-          child: AlertDialog(
-            backgroundColor: AppColors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(22.r),
-            ),
-            contentPadding: EdgeInsets.fromLTRB(24.w, 26.h, 24.w, 20.h),
-            title: Text(
-              'خرید دوره',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontFamily: 'bshabnam',
-                fontSize: 19.sp,
-                fontWeight: FontWeight.bold,
-                color: AppColors.black,
-              ),
-            ),
-            content: Text(
-              'این دوره شامل هزینه است. برای ثبت نام باید ابتدا پرداخت دوره انجام شود.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontFamily: 'bshabnam',
-                fontSize: 14.sp,
-                height: 1.8,
-                color: AppColors.black.withValues(alpha: 0.65),
-              ),
-            ),
-            actionsPadding: EdgeInsets.fromLTRB(18.w, 0, 18.w, 18.h),
-            actions: [
-              SizedBox(
-                width: double.infinity,
-                height: 50.h,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.of(dialogContext).pop();
-
-                    // ==========================================================
-                    // فعلاً پرداخت را شبیه‌سازی می‌کنیم.
-                    // بعداً API پرداخت اینجا قرار می‌گیرد.
-                    // ==========================================================
-
-                    _showPaymentSuccessDialog(context);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14.r),
-                    ),
-                  ),
-                  child: Text(
-                    'ادامه و پرداخت',
-                    style: TextStyle(
-                      fontFamily: 'bshabnam',
-                      fontSize: 15.sp,
-                      color: AppColors.white,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  // ==========================================================================
-  // PAYMENT SUCCESS
-  // ==========================================================================
-
-  void _showPaymentSuccessDialog(BuildContext context) {
+  /// Shown after a **paid** registration request was filed.
+  ///
+  /// Deliberately not the green "payment succeeded" dialog: nothing was paid.
+  /// The wording has to set the right expectation — the course is not in
+  /// «دوره‌های من» yet, it is waiting in the cart.
+  void _showEnrollmentRequestDialog(
+    BuildContext context, {
+    int? ticketId,
+  }) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -2428,19 +3124,19 @@ class _RegisterButton extends StatelessWidget {
                   height: 64.w,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Colors.green.withValues(alpha: 0.12),
+                    color: AppColors.primary.withValues(alpha: 0.12),
                   ),
                   child: Icon(
-                    Icons.check_rounded,
-                    size: 38.sp,
-                    color: Colors.green,
+                    Icons.mark_email_read_outlined,
+                    size: 36.sp,
+                    color: AppColors.primary,
                   ),
                 ),
 
                 SizedBox(height: 18.h),
 
                 Text(
-                  'پرداخت با موفقیت انجام شد',
+                  'درخواست ثبت نام ارسال شد',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontFamily: 'bshabnam',
@@ -2453,7 +3149,7 @@ class _RegisterButton extends StatelessWidget {
                 SizedBox(height: 10.h),
 
                 Text(
-                  'دوره به حساب کاربری شما اضافه شد و اکنون می‌توانید به محتوای آن دسترسی داشته باشید.',
+                  'درخواست شما همراه با نام و شماره تماس‌تان برای بررسی ارسال شد. این دوره تا تأیید پرداخت سفارش، در «سفارش‌ها» و «سبد خرید» شما باقی می‌ماند و پس از تأیید به «دوره‌های من» در پروفایل شما اضافه می‌شود.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontFamily: 'bshabnam',
@@ -2463,6 +3159,20 @@ class _RegisterButton extends StatelessWidget {
                   ),
                 ),
 
+                if (ticketId != null) ...[
+                  SizedBox(height: 12.h),
+                  Text(
+                    'شماره پیگیری: #$ticketId',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: 'bshabnam',
+                      fontSize: 12.5.sp,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ],
+
                 SizedBox(height: 20.h),
 
                 SizedBox(
@@ -2471,8 +3181,7 @@ class _RegisterButton extends StatelessWidget {
                   child: ElevatedButton(
                     onPressed: () {
                       Navigator.of(dialogContext).pop();
-
-                      onPaymentSuccess?.call();
+                      widget.onPaymentSuccess?.call();
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
@@ -2496,6 +3205,65 @@ class _RegisterButton extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _PriceLine extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool emphasize;
+  final bool isSubtracted;
+  final bool isFinal;
+
+  const _PriceLine({
+    required this.label,
+    required this.value,
+    this.emphasize = false,
+    this.isSubtracted = false,
+    this.isFinal = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final Color labelColor =
+        emphasize ? AppColors.black : AppColors.black.withValues(alpha: 0.7);
+    final FontWeight labelWeight =
+        emphasize ? FontWeight.w700 : FontWeight.w500;
+
+    Color valueColor;
+    if (isFinal) {
+      valueColor = AppColors.primary;
+    } else if (isSubtracted) {
+      valueColor = Colors.green;
+    } else {
+      valueColor = emphasize ? AppColors.black : AppColors.black.withValues(alpha: 0.85);
+    }
+
+    return Row(
+      textDirection: TextDirection.rtl,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontFamily: 'BShabnam',
+            fontSize: emphasize ? 15.5.sp : 13.5.sp,
+            fontWeight: labelWeight,
+            color: labelColor,
+          ),
+        ),
+        Text(
+          value,
+          textDirection: TextDirection.ltr,
+          style: TextStyle(
+            fontFamily: 'BShabnam',
+            fontSize: emphasize ? 16.sp : 14.sp,
+            fontWeight: emphasize ? FontWeight.w800 : FontWeight.w600,
+            color: valueColor,
+          ),
+        ),
+      ],
     );
   }
 }

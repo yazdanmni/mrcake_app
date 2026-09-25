@@ -1,5 +1,6 @@
 import '../core/network/api_client.dart';
 import '../core/network/api_config.dart';
+import 'course.dart';
 
 /// `CourseDetail` -> `GET /api/v1/courses/{id}/`
 ///
@@ -86,6 +87,37 @@ class CourseDetails {
   }
 
   bool get hasIntroVideo => introVideo.isNotEmpty;
+
+  /// The offline seed used while `GET v1/courses/{id}/` is still in flight.
+  ///
+  /// Every screen that can be opened from a course card starts with only a
+  /// [Course] in hand, and `CourseDetailsScreen` / `CourseLearningScreen` both
+  /// need a [CourseDetails] to render their first frame. Building it here keeps
+  /// that shape in one place instead of copy-pasted per screen, and both screens
+  /// immediately replace it with the real payload.
+  ///
+  /// [isEnrolled] defaults to `false`: whether the user owns the course is a
+  /// server fact (`CourseDetail.is_enrolled`), never something the device
+  /// decides for itself.
+  factory CourseDetails.seedFrom(
+    Course course, {
+    bool isEnrolled = false,
+  }) {
+    return CourseDetails(
+      courseId: course.id,
+      description: course.shortDescription ?? '',
+      introVideo: '',
+      introImage: course.image,
+      chapters: const <CourseChapter>[],
+      ingredients: const <CourseIngredient>[],
+      shortDescription: course.shortDescription,
+      rating: course.rating ?? '',
+      reviewsCount: course.reviewsCount,
+      studentsCount: course.studentsCount,
+      totalDurationSeconds: course.totalDurationSeconds,
+      isEnrolled: isEnrolled,
+    );
+  }
 
   /// Returns a copy carrying [items] as the chapter list.
   ///

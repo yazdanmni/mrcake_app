@@ -3,7 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mr_cake_project/core/network/remote_data.dart';
+import 'package:mr_cake_project/core/router/app_router.dart';
 import 'package:mr_cake_project/core/theme/app_colors.dart';
+import 'package:mr_cake_project/data/categories_data.dart';
+import 'package:mr_cake_project/data/courses_data.dart';
 import 'package:mr_cake_project/models/category_model.dart';
 import 'package:mr_cake_project/models/course.dart';
 import 'package:mr_cake_project/pages/course_details/course_details_screen.dart';
@@ -59,12 +62,14 @@ class _CoursesScreenState extends State<CoursesScreen> {
     // parallel.
     final categoriesRequest = RemoteLoader.list<CategoryModel>(
       label: 'courses.categories',
+      seed: CategoriesData.categories,
       fetch: _repository.fetchCategories,
       refresh: refresh,
     );
 
     final coursesRequest = RemoteLoader.list<Course>(
       label: 'courses.list',
+      seed: CoursesData.courses,
       fetch: () => _repository.fetchCourses(),
       refresh: refresh,
     );
@@ -84,8 +89,22 @@ class _CoursesScreenState extends State<CoursesScreen> {
   /// changes. The seed data is filtered locally so the fallback matches the
   /// active filter instead of showing everything.
   Future<void> _applyFilters() async {
+    final localSeed = CoursesData.coursesByCategory(_selectedCategoryId);
+    final List<Course> filteredSeed;
+
+    if (_search.isNotEmpty) {
+      final normalizedQuery = _search.toLowerCase();
+      filteredSeed = localSeed.where((course) {
+        return course.title.toLowerCase().contains(normalizedQuery) ||
+            course.instructorFullName.toLowerCase().contains(normalizedQuery);
+      }).toList(growable: false);
+    } else {
+      filteredSeed = localSeed;
+    }
+
     final result = await RemoteLoader.list<Course>(
       label: 'courses.filtered',
+      seed: filteredSeed,
       fetch: () => _repository.fetchCourses(
         categoryId: _selectedCategoryId,
         search: _search.isEmpty ? null : _search,
@@ -154,9 +173,7 @@ class _CoursesScreenState extends State<CoursesScreen> {
               child: Column(
                 children: [
                   CoursesHeader(
-                    onCartTap: () {
-                      // Handle cart tap action here
-                    },
+                    onCartTap: () => AppRouter.toCart(context),
                   ),
                   CoursesSearch(
                     onChanged: _onSearchChanged,

@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:mr_cake_project/core/network/remote_data.dart';
+import 'package:mr_cake_project/data/courses_data.dart';
 import 'package:mr_cake_project/repositories/catalog_repository.dart';
 import 'package:mr_cake_project/utils/course_utils.dart';
 
@@ -44,18 +45,36 @@ class _HomeCoursesState extends State<HomeCourses> {
 
   // ================================================================
   // POPULAR COURSES
-  // از هر دسته 2 دوره با بیشترین تعداد هنرجو
+  // مرتب‌شده بر اساس تعداد هنرجو (نزولی): پرطرفدارترین دوره اول لیست
   // ================================================================
+
+  /// سقف تعداد کارت‌ها — همان تعدادی که انتخاب «۲ از هر دسته» قبلاً می‌ساخت.
+  static const int _popularLimit = 6;
 
   List<Course> get popularCourses => CourseUtils.getPopularCourses(
     courses: _courses,
-    perType: 2,
+    limit: _popularLimit,
   );
 
   Future<void> _load() async {
     final result = await RemoteLoader.list<Course>(
       label: 'home.popular',
-      fetch: CatalogRepository.instance.fetchBestSellingCourses,
+      seed: CoursesData.courses,
+      fetch: () async {
+        // The backend already ranks by student count, so the first item is the
+        // course with the most students and the rest follow it in order.
+        final ranked =
+            await CatalogRepository.instance.fetchCoursesByStudents();
+        if (ranked.isNotEmpty) return ranked;
+
+        // Older deployments may ignore `ordering`: the full catalogue is still
+        // sorted locally by `CourseUtils.getPopularCourses`.
+        //
+        // `best_selling/` is deliberately not used any more: it is auth-only
+        // (a guest gets 401) and its order is exactly what the explicit
+        // `-students_count` ranking replaces.
+        return CatalogRepository.instance.fetchCourses();
+      },
     );
 
     if (!mounted) return;
@@ -338,13 +357,11 @@ class _CardsLayer extends StatelessWidget {
                 course: courses[item.index],
                 width: cardWidth,
                 height: cardHeight,
-                onTap: isCenter
-                    ? () {
-                        onCourseTap?.call(
-                          courses[item.index],
-                        );
-                      }
-                    : null,
+                onTap: () {
+                    onCourseTap?.call(
+                      courses[item.index],
+                    );
+                  },
               ),
             ),
           ),

@@ -29,18 +29,26 @@ class _MainBottomNavigationState extends State<MainBottomNavigation>
   late Animation<double> _iconScaleAnimation;
   late Animation<double> _rotationAnimation;
 
-  final List<Widget> _pages = const [
-    ExploreScreen(),
-    CoursesScreen(),
-    HomeScreen(),
-    SearchScreen(),
-    ProfileScreen(),
+  /// Index of the profile tab, and the reason [_buildPages] rebuilds the list on
+  /// every tab change: the tabs live in an `IndexedStack`, so the profile is
+  /// built once and kept alive. Passing `visible` gives
+  /// `ProfileScreen.didUpdateWidget` something to react to, which is how
+  /// «دوره‌های من» learns it must re-read the server after the user registers
+  /// for (or is approved for) a course.
+  static const int _profileIndex = 4;
+
+  List<Widget> _buildPages() => <Widget>[
+    const ExploreScreen(),
+    const CoursesScreen(),
+    const HomeScreen(),
+    const SearchScreen(),
+    ProfileScreen(visible: _currentIndex == _profileIndex),
   ];
 
   final List<_NavigationItem> _items = const [
     _NavigationItem(
       icon: Icons.explore_rounded,
-      label: 'اکتشاف',
+      label: 'اکسپلور',
     ),
     _NavigationItem(
       icon: Icons.menu_book_rounded,
@@ -223,7 +231,7 @@ class _MainBottomNavigationState extends State<MainBottomNavigation>
 
       body: IndexedStack(
         index: _currentIndex,
-        children: _pages,
+        children: _buildPages(),
       ),
 
       bottomNavigationBar: SafeArea(

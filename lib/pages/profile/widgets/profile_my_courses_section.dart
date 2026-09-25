@@ -4,7 +4,6 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../core/network/remote_data.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../models/course.dart';
-import '../../../models/enrollment.dart';
 import '../../../repositories/catalog_repository.dart';
 
 class ProfileMyCoursesSection extends StatefulWidget {
@@ -14,12 +13,22 @@ class ProfileMyCoursesSection extends StatefulWidget {
   final VoidCallback? onGoToCourses;
   final ValueChanged<Course>? onCourseTap;
 
+  /// Bumped by the parent to force a reload.
+  ///
+  /// `ProfileScreen` lives inside a `MainBottomNavigation` `IndexedStack`, so its
+  /// state — and therefore this list — survives every tab switch. Without a
+  /// reload trigger the section would fetch exactly once and a course registered
+  /// (or approved by an admin) afterwards would never appear, which reads to the
+  /// user as "my courses are not in my profile".
+  final int reloadToken;
+
   const ProfileMyCoursesSection({
     super.key,
     required this.userId,
     this.onViewAll,
     this.onGoToCourses,
     this.onCourseTap,
+    this.reloadToken = 0,
   });
 
   @override
@@ -28,8 +37,11 @@ class ProfileMyCoursesSection extends StatefulWidget {
 }
 
 class _ProfileMyCoursesSectionState extends State<ProfileMyCoursesSection> {
-  late List<Enrollment> _enrollments = const [];
-  List<Course> _courses = const [];
+  List<_UserCourseItem> _items = const <_UserCourseItem>[];
+
+  /// True when the request failed and nothing is cached, so the empty state
+  /// would be a lie ("you have no courses" vs "we could not ask").
+  bool _failed = false;
 
   @override
   void initState() {
@@ -38,71 +50,76 @@ class _ProfileMyCoursesSectionState extends State<ProfileMyCoursesSection> {
     _load();
   }
 
+  @override
+  void didUpdateWidget(ProfileMyCoursesSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (widget.reloadToken != oldWidget.reloadToken) {
+      _load();
+    }
+  }
+
+  /// Loads the courses the user owns.
+  ///
+  /// **`GET v1/courses/my_courses/` is the source of truth**, and it returns the
+  /// full `CourseList` objects, so no second lookup is needed to name them.
+  ///
+  /// ⚠️ `GET v1/courses/enrollments/` is *declared* in the OpenAPI schema
+  /// (`PaginatedEnrollmentList`) but **does not exist on the live server** — it
+  /// answers `404 {"message":"یافت نشد."}`. Pointing this list at it is what made
+  /// the profile report "دوره یافت نشد" and show an empty «دوره‌های من» while
+  /// Postman happily returned the user's courses from `my_courses/`.
+  ///
+  /// Progress only exists on an enrollment, so `enrollments/` is still consulted
+  /// **best-effort** to enrich the rows with `progress_percent`. Its failure is
+  /// swallowed: a course with no progress bar beats no course at all.
   Future<void> _load() async {
-    final enrollmentsRequest = RemoteLoader.list<Enrollment>(
-      label: 'profile.enrollments',
-      fetch: CatalogRepository.instance.fetchEnrollments,
+    final myCoursesRequest = RemoteLoader.list<Course>(
+      label: 'profile.my_courses',
+      fetch: CatalogRepository.instance.fetchMyCourses,
+      // Bypass the TTL: this list is refreshed precisely because something may
+      // have changed on the server.
+      refresh: widget.reloadToken > 0,
     );
 
-    final coursesRequest = RemoteLoader.list<Course>(
-      label: 'profile.courses',
-      fetch: CatalogRepository.instance.fetchCourses,
-    );
-
-    final enrollments = await enrollmentsRequest;
-    final courses = await coursesRequest;
+    final progress = await _fetchProgress();
+    final myCourses = await myCoursesRequest;
 
     if (!mounted) return;
 
     setState(() {
-      _enrollments = enrollments.data;
-      _courses = courses.data;
+      _items = myCourses.data
+          .map(
+            (course) => _UserCourseItem(
+              course: course,
+              progress: progress[course.id] ?? 0,
+            ),
+          )
+          .toList(growable: false);
+
+      _failed = myCourses.hasError && myCourses.data.isEmpty;
     });
   }
 
-  // ================================================================
-  // GET USER COURSES
-  // ================================================================
+  /// `courseId -> progress (0..1)`, or an empty map when the endpoint is
+  /// unavailable (which is the case on the current backend).
+  Future<Map<int, double>> _fetchProgress() async {
+    try {
+      final enrollments = await CatalogRepository.instance.fetchEnrollments();
 
-  List<_UserCourseItem> _getUserCourses() {
-    final List<_UserCourseItem> result = [];
-
-    for (final enrollment in _enrollments) {
-      // بک‌اند دوره را همراه ثبت‌نام می‌فرستد؛ در غیر این صورت از لیست
-      // دوره‌ها پیدا می‌شود.
-      final nested = enrollment.course;
-
-      if (nested != null) {
-        result.add(
-          _UserCourseItem(
-            course: nested,
-            enrollment: enrollment,
-          ),
-        );
-
-        continue;
-      }
-
-      for (final item in _courses) {
-        if (item.id == enrollment.courseId) {
-          result.add(
-            _UserCourseItem(
-              course: item,
-              enrollment: enrollment,
-            ),
-          );
-
-          break;
-        }
-      }
+      return <int, double>{
+        for (final enrollment in enrollments)
+          if (enrollment.courseId > 0) enrollment.courseId: enrollment.progress,
+      };
+    } catch (error) {
+      debugPrint('[MyCourses] progress unavailable: $error');
+      return <int, double>{};
     }
-
-    return result;
   }
 
   @override
   Widget build(BuildContext context) {
-    final userCourses = _getUserCourses();
+    final userCourses = _items;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -194,9 +211,11 @@ class _ProfileMyCoursesSectionState extends State<ProfileMyCoursesSection> {
             horizontal: 25.w,
           ),
           child: userCourses.isEmpty
-              ? _EmptyMyCourses(
-                  onGoToCourses: widget.onGoToCourses,
-                )
+              ? (_failed
+                    ? _FailedMyCourses(onRetry: _load)
+                    : _EmptyMyCourses(
+                        onGoToCourses: widget.onGoToCourses,
+                      ))
               : Column(
                   children: userCourses
                       .map(
@@ -228,11 +247,13 @@ class _ProfileMyCoursesSectionState extends State<ProfileMyCoursesSection> {
 
 class _UserCourseItem {
   final Course course;
-  final Enrollment enrollment;
+
+  /// نسبت پیشرفت بین ۰ و ۱ — از `enrollments/` اگر در دسترس باشد، وگرنه ۰.
+  final double progress;
 
   const _UserCourseItem({
     required this.course,
-    required this.enrollment,
+    this.progress = 0,
   });
 }
 
@@ -343,6 +364,116 @@ class _EmptyMyCourses extends StatelessWidget {
 }
 
 // ===================================================================
+// FAILED STATE
+// ===================================================================
+
+/// Shown when the enrollments call failed and there is nothing cached.
+///
+/// Deliberately **not** the empty state: telling a user who owns courses that
+/// they own none is worse than admitting the request failed. The retry button
+/// runs the same load again.
+class _FailedMyCourses extends StatelessWidget {
+  final VoidCallback onRetry;
+
+  const _FailedMyCourses({required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(
+        horizontal: 20.w,
+        vertical: 24.h,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.field,
+        borderRadius: BorderRadius.circular(18.r),
+        border: Border.all(
+          color: AppColors.border,
+          width: 1.5,
+        ),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 52.w,
+            height: 52.w,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.error.withValues(alpha: 0.10),
+            ),
+            child: Icon(
+              Icons.cloud_off_rounded,
+              size: 25.sp,
+              color: AppColors.error,
+            ),
+          ),
+
+          SizedBox(height: 14.h),
+
+          Text(
+            'دریافت دوره‌های شما ناموفق بود',
+            textDirection: TextDirection.rtl,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: 'bshabnam',
+              fontSize: 15.sp,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+
+          SizedBox(height: 7.h),
+
+          Text(
+            'اتصال خود را بررسی کنید و دوباره تلاش کنید.',
+            textDirection: TextDirection.rtl,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: 'bshabnam',
+              fontSize: 12.5.sp,
+              fontWeight: FontWeight.w400,
+              color: AppColors.textSecondary,
+            ),
+          ),
+
+          SizedBox(height: 18.h),
+
+          SizedBox(
+            height: 46.h,
+            child: OutlinedButton.icon(
+              onPressed: onRetry,
+              icon: Icon(
+                Icons.refresh_rounded,
+                size: 18.sp,
+                color: AppColors.primary,
+              ),
+              label: Text(
+                'تلاش دوباره',
+                textDirection: TextDirection.rtl,
+                style: TextStyle(
+                  fontFamily: 'bshabnam',
+                  fontSize: 13.5.sp,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primary,
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(color: AppColors.primary, width: 1.5.w),
+                padding: EdgeInsets.symmetric(horizontal: 22.w),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14.r),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ===================================================================
 // MY COURSE CARD
 // ===================================================================
 
@@ -358,10 +489,8 @@ class _MyCourseCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final course = item.course;
-    final enrollment = item.enrollment;
 
-    final double progress =
-        enrollment.progress.clamp(0.0, 1.0).toDouble();
+    final double progress = item.progress.clamp(0.0, 1.0).toDouble();
 
     return Material(
       color: Colors.transparent,

@@ -81,9 +81,28 @@ class RemoteLoader {
     try {
       final items = await fetch();
 
+      if (items.isEmpty &&
+          AppConfig.useSeedFallback &&
+          seed.isNotEmpty) {
+        _log(label, 'empty remote page, falling back to seed (${seed.length} items)');
+        return RemoteResult<List<T>>(
+          data: seed,
+          isRemote: false,
+        );
+      }
+
       return RemoteResult<List<T>>(data: items, isRemote: true);
     } on ApiException catch (error) {
       _log(label, 'request failed (${error.type.name}): ${error.message}');
+
+      if (AppConfig.useSeedFallback && seed.isNotEmpty) {
+        _log(label, 'using seed fallback (${seed.length} items) after ApiException');
+        return RemoteResult<List<T>>(
+          data: seed,
+          isRemote: false,
+          error: error,
+        );
+      }
 
       return RemoteResult<List<T>>(
         data: const [],
@@ -93,13 +112,24 @@ class RemoteLoader {
     } catch (error) {
       _log(label, 'unexpected error: $error');
 
+      final apiError = ApiException(
+        message: 'خطای غیرمنتظره‌ای رخ داد.',
+        type: ApiErrorType.unknown,
+      );
+
+      if (AppConfig.useSeedFallback && seed.isNotEmpty) {
+        _log(label, 'using seed fallback (${seed.length} items) after unexpected error');
+        return RemoteResult<List<T>>(
+          data: seed,
+          isRemote: false,
+          error: apiError,
+        );
+      }
+
       return RemoteResult<List<T>>(
         data: const [],
         isRemote: false,
-        error: ApiException(
-          message: 'خطای غیرمنتظره‌ای رخ داد.',
-          type: ApiErrorType.unknown,
-        ),
+        error: apiError,
       );
     }
   }
@@ -118,9 +148,29 @@ class RemoteLoader {
 
     try {
       final value = await fetch();
+
+      if (value == null &&
+          AppConfig.useSeedFallback &&
+          seed != null) {
+        _log(label, 'null remote value, falling back to seed');
+        return RemoteResult<T?>(
+          data: seed,
+          isRemote: false,
+        );
+      }
+
       return RemoteResult<T?>(data: value, isRemote: true);
     } on ApiException catch (error) {
       _log(label, 'request failed (${error.type.name}): ${error.message}');
+
+      if (AppConfig.useSeedFallback && seed != null) {
+        _log(label, 'using seed fallback after ApiException');
+        return RemoteResult<T?>(
+          data: seed,
+          isRemote: false,
+          error: error,
+        );
+      }
 
       return RemoteResult<T?>(
         data: null, // Always return null on API error
@@ -130,13 +180,24 @@ class RemoteLoader {
     } catch (error) {
       _log(label, 'unexpected error: $error');
 
+      final apiError = ApiException(
+        message: 'خطای غیرمنتظره‌ای رخ داد.',
+        type: ApiErrorType.unknown,
+      );
+
+      if (AppConfig.useSeedFallback && seed != null) {
+        _log(label, 'using seed fallback after unexpected error');
+        return RemoteResult<T?>(
+          data: seed,
+          isRemote: false,
+          error: apiError,
+        );
+      }
+
       return RemoteResult<T?>(
         data: null, // Always return null on unexpected error
         isRemote: false,
-        error: ApiException(
-          message: 'خطای غیرمنتظره‌ای رخ داد.',
-          type: ApiErrorType.unknown,
-        ),
+        error: apiError,
       );
     }
   }

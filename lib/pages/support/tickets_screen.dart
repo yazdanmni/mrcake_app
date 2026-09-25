@@ -76,6 +76,38 @@ class TicketModel {
   }
 }
 
+/// `TicketMessage` -> `messages[]` of `GET /api/v1/support/{id}/`.
+///
+/// This is where the **body** of a ticket lives. `TicketList` (the endpoint the
+/// list screen reads) carries only `title` / `subject` / `status`, so a ticket
+/// created automatically — for example by a paid course registration — shows its
+/// details (name, family name, phone number, amounts) here and nowhere else.
+class TicketMessage {
+  final int id;
+  final String message;
+  final bool isAdmin;
+  final String? attachment;
+  final DateTime? createdAt;
+
+  const TicketMessage({
+    required this.id,
+    required this.message,
+    required this.isAdmin,
+    this.attachment,
+    this.createdAt,
+  });
+
+  factory TicketMessage.fromJson(Map<String, dynamic> json) {
+    return TicketMessage(
+      id: Json.asInt(json['id']) ?? 0,
+      message: Json.asString(json['message']) ?? '',
+      isAdmin: Json.asBool(json['is_admin']),
+      attachment: Json.asString(json['attachment']),
+      createdAt: Json.asDate(json['created_at']),
+    );
+  }
+}
+
 class TicketsScreen extends StatefulWidget {
   const TicketsScreen({super.key});
 
@@ -1190,7 +1222,7 @@ class _CreateTicketButton extends StatelessWidget {
 // TICKET DETAILS
 // ============================================================================
 
-class TicketDetailsScreen extends StatelessWidget {
+class TicketDetailsScreen extends StatefulWidget {
   final TicketModel ticket;
 
   const TicketDetailsScreen({
@@ -1199,7 +1231,58 @@ class TicketDetailsScreen extends StatelessWidget {
   });
 
   @override
+  State<TicketDetailsScreen> createState() => _TicketDetailsScreenState();
+}
+
+class _TicketDetailsScreenState extends State<TicketDetailsScreen> {
+  List<TicketMessage> _messages = const <TicketMessage>[];
+
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  /// `GET /api/v1/support/{id}/` -> `TicketDetail`.
+  ///
+  /// The list endpoint the previous screen read from returns no message body,
+  /// which is why the «توضیحات» box used to be empty for **every** ticket. The
+  /// body is what matters here: a ticket this app creates by itself (a paid
+  /// course registration) carries the user's name, family name and phone number
+  /// in it, and the user has to be able to read it back.
+  Future<void> _load() async {
+    try {
+      final detail = await SupportRepository.instance.fetchTicket(
+        widget.ticket.id,
+      );
+
+      final raw = detail['messages'];
+      final messages = raw is List
+          ? raw
+                .map(Json.asMap)
+                .whereType<Map<String, dynamic>>()
+                .map(TicketMessage.fromJson)
+                .toList(growable: false)
+          : const <TicketMessage>[];
+
+      if (!mounted) return;
+      setState(() {
+        _messages = messages;
+        _loading = false;
+      });
+    } catch (error) {
+      debugPrint('[Ticket] detail fetch failed: $error');
+      if (!mounted) return;
+      setState(() => _loading = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final ticket = widget.ticket;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -1273,20 +1356,45 @@ class TicketDetailsScreen extends StatelessWidget {
                     ),
                   ),
                   SizedBox(height: 12.h),
-                  _DetailBox(
-                    title: 'توضیحات',
-                    child: Text(
-                      ticket.description,
-                      textDirection: TextDirection.rtl,
-                      textAlign: TextAlign.right,
-                      style: TextStyle(
-                        fontFamily: 'bshabnam',
-                        fontSize: 13.sp,
-                        height: 1.9,
-                        color: AppColors.textSecondary,
+
+                  if (_loading)
+                    Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24.h),
+                      child: Center(
+                        child: SizedBox(
+                          width: 24.w,
+                          height: 24.w,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.2,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                    )
+                  else if (_messages.isEmpty)
+                    // Nothing came back (or the request failed): keep showing
+                    // whatever the list screen handed over.
+                    _DetailBox(
+                      title: 'توضیحات',
+                      child: Text(
+                        ticket.description,
+                        textDirection: TextDirection.rtl,
+                        textAlign: TextAlign.right,
+                        style: TextStyle(
+                          fontFamily: 'bshabnam',
+                          fontSize: 13.sp,
+                          height: 1.9,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    )
+                  else
+                    ..._messages.map(
+                      (message) => Padding(
+                        padding: EdgeInsets.only(bottom: 12.h),
+                        child: _MessageBox(message: message),
                       ),
                     ),
-                  ),
                   if (ticket.imagePath != null) ...[
                     SizedBox(height: 12.h),
                     _DetailBox(
@@ -1305,6 +1413,40 @@ class TicketDetailsScreen extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// MESSAGE BOX
+// ============================================================================
+
+/// One entry of `TicketDetail.messages`.
+///
+/// Rendered through the same [_DetailBox] the rest of the screen uses, so an
+/// automatically created registration ticket looks like every other ticket.
+class _MessageBox extends StatelessWidget {
+  final TicketMessage message;
+
+  const _MessageBox({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    final isAdmin = message.isAdmin;
+
+    return _DetailBox(
+      title: isAdmin ? 'پاسخ پشتیبانی' : 'پیام شما',
+      child: Text(
+        message.message,
+        textDirection: TextDirection.rtl,
+        textAlign: TextAlign.right,
+        style: TextStyle(
+          fontFamily: 'bshabnam',
+          fontSize: 13.sp,
+          height: 1.9,
+          color: isAdmin ? AppColors.primary : AppColors.textPrimary,
         ),
       ),
     );

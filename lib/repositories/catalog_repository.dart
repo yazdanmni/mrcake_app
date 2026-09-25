@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 import '../core/network/api_client.dart';
 import '../core/network/api_config.dart';
 import '../core/network/api_exception.dart';
@@ -10,6 +12,7 @@ import '../models/enrollment.dart';
 import '../models/explore_video.dart';
 import '../models/recipe.dart';
 import '../models/teacher_model.dart';
+import '../models/user_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'profile_repository.dart';
 
@@ -77,6 +80,7 @@ class PagedResult {
 ///  HomeScreen          GET v1/banners/all_active/           -> `BannerModel`
 ///  HomeScreen          GET v1/banners/by_type/?type=..      -> `BannerModel`
 ///  HomeScreen          GET v1/courses/featured/             -> `Course`
+///  HomeScreen          GET v1/courses/?ordering=-students_count -> `Course`
 ///  HomeScreen          GET v1/courses/best_selling/         -> `Course`
 ///  HomeScreen          GET v1/courses/categories/featured/  -> `CategoryModel`
 ///  CoursesScreen       GET v1/courses/                      -> `Course`
@@ -88,8 +92,12 @@ class PagedResult {
 ///  RecipesScreen       GET v1/courses/recipes/              -> `Recipe`
 ///  RecipeDetail        GET v1/courses/recipes/{id}/         -> `Recipe`
 ///  TeacherScreen       GET v1/accounts/teachers/            -> `Teacher`
+///  StudentsScreen      GET v1/accounts/users/?role=user     -> `UserModel`
 ///  TeacherScreen       GET v1/content/teacher-portfolio/    -> `TeacherPortfolioItem`
+///  ProfileScreen       GET v1/courses/my_courses/           -> `Course`
 ///  ProfileScreen       GET v1/courses/enrollments/          -> `Enrollment`
+///                          (declared in the schema but **404 on the live
+///                           server** — only used best-effort for progress)
 class CatalogRepository {
   CatalogRepository._();
 
@@ -200,14 +208,48 @@ class CatalogRepository {
     String? ordering,
     int? teacherId,
   }) async {
-    final result = await fetchCoursePage(
-      page: page,
-      pageSize: pageSize,
-      search: search,
-      categoryId: categoryId,
-      ordering: ordering,
-    );
-    return result.map(Course.fromJson);
+    List<Course> courses = [];
+    if (teacherId != null) {
+      final result = await fetchCoursePage(
+        page: page,
+        pageSize: pageSize,
+        search: search,
+        categoryId: categoryId,
+        ordering: ordering,
+        teacherId: teacherId,
+      );
+      courses = result.map(Course.fromJson);
+
+      // If fetching by teacherId returns empty but teacher profile implies courses,
+      // try fetching all courses and filtering locally as a workaround for API inconsistency.
+      if (courses.isEmpty) {
+        final allCoursesResult = await fetchCoursePage(
+          page: page,
+          pageSize: pageSize,
+          search: search,
+          categoryId: categoryId,
+          ordering: ordering,
+          teacherId: null, // Fetch all courses
+        );
+        final allCourses = allCoursesResult.map(Course.fromJson);
+        debugPrint('Client-side filtering: teacherId=$teacherId');
+        courses = allCourses.where((course) {
+          debugPrint('  Course ID: ${course.id}, Course instructorId: ${course.instructorId}');
+          return course.instructorId == teacherId;
+        }).toList();
+      }
+    } else {
+      final result = await fetchCoursePage(
+        page: page,
+        pageSize: pageSize,
+        search: search,
+        categoryId: categoryId,
+        ordering: ordering,
+        teacherId: teacherId,
+      );
+      courses = result.map(Course.fromJson);
+    }
+    return courses;
   }
 
   Future<List<Course>> fetchFeaturedCourses({int page = 1}) =>
@@ -224,6 +266,26 @@ class CatalogRepository {
 
   Future<List<Course>> fetchBestSellingCourses({int page = 1}) =>
       _courses(ApiEndpoints.coursesBestSelling, page: page);
+
+  /// `GET /api/v1/courses/?ordering=-students_count`
+  ///
+  /// The catalogue ranked by **student count**, most popular first — the source
+  /// of the home «دوره های محبوب» carousel.
+  ///
+  /// Verified against the live backend: the endpoint accepts DRF `ordering`,
+  /// and `-students_count` answers `۳، ۲، ۰` هنرجو where the default order is
+  /// `۲، ۰، ۳`. Unlike [fetchBestSellingCourses] it is **public**, so a guest
+  /// gets the real ranking instead of the bundled seed data.
+  ///
+  /// Not cached separately: `fetchCourses` goes straight to `_page`, so every
+  /// call is a fresh read (the carousel still goes through the [RemoteLoader]
+  /// TTL cache).
+  Future<List<Course>> fetchCoursesByStudents({int page = 1, int? pageSize}) =>
+      fetchCourses(
+        page: page,
+        pageSize: pageSize,
+        ordering: '-students_count',
+      );
 
   /// `GET /api/v1/courses/my_courses/` (auth)
   ///
@@ -476,7 +538,16 @@ class CatalogRepository {
     },
   );
 
-  /// `GET /api/v1/content/teacher-portfolio/` -> page of `TeacherPortfolioItem`
+  /// `GET /api/v1/accounts/teacher-portfolios/` -> page of `TeacherPortfolioItem`
+  ///
+  /// ⚠️ This is the endpoint the **real works** live on. `content/teacher-portfolio/`
+  /// also exists and returns the same `TeacherPortfolioItem` type, but on the live
+  /// server it answers `count: 0` — it is not what the teacher profile shows.
+  /// The works here carry `image` **or** `video` as direct urls plus the student
+  /// they belong to, so no `v1/media/{id}/` round trip is needed.
+  ///
+  /// `teacherId` is optional: the teacher profile passes its own id, while the
+  /// «هنرجوها» gallery passes nothing to span every teacher.
   Future<List<TeacherPortfolioItem>> fetchTeacherPortfolio({
     int page = 1,
     int? teacherId,
@@ -484,14 +555,27 @@ class CatalogRepository {
   }) => _cached<List<TeacherPortfolioItem>>(
     'portfolio:p$page:t$teacherId:m$resolveMedia',
     () async {
+      final Map<String, dynamic> query = <String, dynamic>{
+        'page': page,
+      };
+      // The key must be absent, not empty, when there is no teacher: Dio
+      // serialises a null value as a bare `?teacher`, and DRF answers an
+      // empty integer filter with a 400 — which would break the
+      // across-every-teacher gallery on «هنرجوها».
+      if (teacherId != null && teacherId > 0) {
+        query['teacher'] = teacherId;
+      }
+
       final result = await _page(
-        ApiEndpoints.contentTeacherPortfolio,
-        query: {'page': page, 'teacher': teacherId},
+        ApiEndpoints.teacherPortfolios,
+        query: query,
       );
 
       final items = result.map(TeacherPortfolioItem.fromJson);
       if (!resolveMedia || items.isEmpty) return items;
 
+      // A no-op for the accounts shape (it has no `media` id), kept so the older
+      // content shape still hydrates if it is ever read again.
       return Future.wait(items.map(_hydratePortfolioItem));
     },
   );
@@ -539,6 +623,37 @@ class CatalogRepository {
         if (map == null || map.isEmpty) return null;
         return Teacher.fromJson(map);
       });
+
+  // ---------------------------------------------------------------------------
+  // students
+  // ---------------------------------------------------------------------------
+
+  /// `GET /api/v1/accounts/users/?role=user` (auth) -> page of `UserPublic`
+  ///
+  /// There is no dedicated students endpoint — a "student" in this app is
+  /// simply an account whose `role` is `user`, and `role` is the filter the API
+  /// exposes for exactly that. This is what the home «هنرجوها» shortcut opens.
+  ///
+  /// **Auth-required** (`security: [{jwtAuth: []}]`, verified: a guest gets
+  /// `401 اطلاعات برای اعتبارسنجی ارسال نشده است.`), so the screen tells a
+  /// signed-out visitor to sign in rather than showing an empty grid.
+  ///
+  /// Not cached: the roster changes as accounts are created, and the response
+  /// is per-account data.
+  Future<List<UserModel>> fetchStudents({
+    int page = 1,
+    String? search,
+  }) async {
+    final result = await _page(
+      ApiEndpoints.users,
+      query: {
+        'role': UserRole.user.value,
+        'page': page,
+        if (search != null && search.isNotEmpty) 'search': search,
+      },
+    );
+    return result.map(UserModel.fromJson);
+  }
 
   /// `GET /api/v1/accounts/users/{id}/` -> builds a [Teacher] out of a user.
   ///
@@ -617,6 +732,7 @@ class CatalogRepository {
     final data = await _api.get<dynamic>(path, query: query);
     return PagedResult.from(data);
   }
+
 
   Future<Map<String, dynamic>> _object(
     String path, {

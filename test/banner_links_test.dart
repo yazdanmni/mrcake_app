@@ -244,6 +244,115 @@ void main() {
   });
 
   // ==========================================================================
+  // Banner carousel — autoplay
+  // ==========================================================================
+
+  group('HomeBanner autoplay', () {
+    List<BannerModel> slides(int count) => List<BannerModel>.generate(
+      count,
+      (index) => BannerModel(imageUrl: 'https://x/$index.webp'),
+    );
+
+    /// The page the carousel is resting on.
+    double? restingPage(WidgetTester tester) =>
+        tester.widget<PageView>(find.byType(PageView)).controller?.page;
+
+    /// Waits out the 3s dwell, then lets the slide animation finish.
+    ///
+    /// 3.1s rather than exactly 3s: the countdown is re-armed when the slide
+    /// *settles*, so every subsequent wait starts a few hundred ms later than
+    /// the previous one and an exact 3s would sit right on the boundary.
+    Future<void> waitForNextSlide(WidgetTester tester) async {
+      await tester.pump(const Duration(milliseconds: 3100));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('advances to the next slide every 3 seconds', (tester) async {
+      await tester.pumpWidget(_wrap(HomeBanner(banners: slides(3))));
+      await tester.pump();
+
+      expect(restingPage(tester), closeTo(0, 0.01));
+
+      await waitForNextSlide(tester);
+      expect(restingPage(tester), closeTo(1, 0.01));
+
+      await waitForNextSlide(tester);
+      expect(restingPage(tester), closeTo(2, 0.01));
+
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('keeps cycling and wraps back to the first slide', (
+      tester,
+    ) async {
+      // A countdown armed once and never re-armed would stop after one slide.
+      await tester.pumpWidget(_wrap(HomeBanner(banners: slides(2))));
+      await tester.pump();
+
+      await waitForNextSlide(tester);
+      expect(restingPage(tester), closeTo(1, 0.01));
+
+      await waitForNextSlide(tester);
+      expect(restingPage(tester), closeTo(0, 0.01));
+
+      await waitForNextSlide(tester);
+      expect(restingPage(tester), closeTo(1, 0.01));
+
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('does not move when there is only one slide', (tester) async {
+      await tester.pumpWidget(_wrap(HomeBanner(banners: slides(1))));
+      await tester.pump();
+
+      await tester.pump(const Duration(seconds: 9));
+      await tester.pumpAndSettle();
+
+      expect(restingPage(tester), closeTo(0, 0.01));
+    });
+
+    testWidgets('starts once the banners arrive from the api', (tester) async {
+      // The home screen mounts `HomeBanner` with an **empty** list and replaces
+      // it when `banners/by_type/` answers. A timer armed only in `initState`
+      // sees the empty list, bails out, and is never re-armed — which is exactly
+      // why the carousel stood still on a device while these tests passed.
+      await tester.pumpWidget(_wrap(const HomeBanner(banners: [])));
+      await tester.pump();
+
+      expect(find.byType(PageView), findsNothing);
+
+      await tester.pumpWidget(_wrap(HomeBanner(banners: slides(3))));
+      await tester.pump();
+
+      await waitForNextSlide(tester);
+
+      expect(restingPage(tester), closeTo(1, 0.01));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a manual swipe is not yanked away mid-read', (tester) async {
+      await tester.pumpWidget(_wrap(HomeBanner(banners: slides(3))));
+      await tester.pump();
+
+      // ~80% of a slide: past the midpoint, so it always settles on page 1.
+      await tester.drag(find.byType(PageView), const Offset(-250, 0));
+      await tester.pumpAndSettle();
+
+      final afterSwipe = restingPage(tester);
+      expect(afterSwipe, closeTo(1, 0.01));
+
+      // Well inside the dwell that starts when the swipe settles.
+      await tester.pump(const Duration(milliseconds: 2000));
+      expect(restingPage(tester), closeTo(afterSwipe!, 0.01));
+
+      // ...and past it, the carousel picks up again on its own.
+      await tester.pump(const Duration(milliseconds: 1600));
+      await tester.pumpAndSettle();
+      expect(restingPage(tester), closeTo(2, 0.01));
+    });
+  });
+
+  // ==========================================================================
   // Hero
   // ==========================================================================
 
@@ -302,8 +411,13 @@ void main() {
       );
       await tester.pump();
 
+      // No `pump()` here on purpose: the CTA pushes `CoursesScreen`, and
+      // letting that route build would (a) fire a catalogue request whose
+      // timers outlive the test and (b) lay the whole courses list out on the
+      // 800x600 test surface, which overflows. The assertion only cares that
+      // the CTA did **not** hand a url to the OS, and that is decided
+      // synchronously by the tap itself.
       await tester.tap(find.text('شروع یادگیری'));
-      await tester.pump();
 
       expect(launcher.launched, isEmpty);
     });

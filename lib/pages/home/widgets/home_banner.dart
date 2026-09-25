@@ -37,6 +37,12 @@ class HomeBanner extends StatefulWidget {
 }
 
 class _HomeBannerState extends State<HomeBanner> {
+  /// How long a slide stays on screen before the carousel moves on by itself.
+  static const Duration _autoPlayInterval = Duration(seconds: 3);
+
+  /// Slide transition, matching the feel of a manual swipe.
+  static const Duration _slideDuration = Duration(milliseconds: 450);
+
   late final PageController _controller;
   int _currentPage = 0;
   Timer? _autoPlayTimer;
@@ -45,23 +51,61 @@ class _HomeBannerState extends State<HomeBanner> {
   void initState() {
     super.initState();
     _controller = PageController();
-    _startAutoPlay();
+    _restartAutoPlay();
   }
 
-  // Auto-advance every 4 seconds when there is more than one slide.
-  void _startAutoPlay() {
+  /// Re-arms the countdown whenever the slide list changes.
+  ///
+  /// This is what made the carousel stand still in the real app: the banners are
+  /// fetched **after** the first build, so a timer armed once in [initState] saw
+  /// an empty list, bailed out, and was never re-armed when the API answered.
+  /// (It only ever worked in tests, where the banners are passed up front.)
+  @override
+  void didUpdateWidget(HomeBanner oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (!identical(widget.banners, oldWidget.banners)) {
+      // The list can also shrink under us — never point past its end.
+      if (_currentPage >= widget.banners.length) {
+        _currentPage = 0;
+        if (_controller.hasClients) _controller.jumpToPage(0);
+      }
+
+      _restartAutoPlay();
+    }
+  }
+
+  /// Arms the next auto-advance.
+  ///
+  /// A single-shot timer re-armed by `onPageChanged`, **not**
+  /// `Timer.periodic`: that way a slide the user swiped to by hand also gets a
+  /// full [_autoPlayInterval] on screen instead of being yanked away mid-read.
+  void _restartAutoPlay() {
+    _autoPlayTimer?.cancel();
+
+    // A single slide has nowhere to go.
     if (widget.banners.length < 2) return;
 
-    _autoPlayTimer?.cancel();
-    _autoPlayTimer = Timer.periodic(const Duration(seconds: 4), (_) {
-      if (!mounted) return;
-      final next = (_currentPage + 1) % widget.banners.length;
-      _controller.animateToPage(
-        next,
-        duration: const Duration(milliseconds: 450),
-        curve: Curves.easeInOut,
-      );
-    });
+    _autoPlayTimer = Timer(_autoPlayInterval, _advance);
+  }
+
+  void _advance() {
+    if (!mounted) return;
+
+    // The carousel may not be attached yet (first frame, or an empty list).
+    if (!_controller.hasClients) {
+      _restartAutoPlay();
+      return;
+    }
+
+    _controller.animateToPage(
+      (_currentPage + 1) % widget.banners.length,
+      duration: _slideDuration,
+      curve: Curves.easeInOut,
+    );
+
+    // Keeps the loop alive even if no page change is reported back.
+    _restartAutoPlay();
   }
 
   @override
@@ -92,6 +136,10 @@ class _HomeBannerState extends State<HomeBanner> {
                 itemCount: widget.banners.length,
                 onPageChanged: (index) {
                   setState(() => _currentPage = index);
+                  // Restart the countdown, so the next slide always gets its
+                  // full dwell time — whether this change came from the timer
+                  // or from the user's finger.
+                  _restartAutoPlay();
                 },
                 itemBuilder: (context, index) {
                   return _BannerSlide(banner: widget.banners[index]);

@@ -79,6 +79,12 @@ class Validators {
     return null;
   }
 
+  static bool isEmailValid(String? value) {
+    final email = value?.trim() ?? '';
+    if (email.isEmpty) return false;
+    return _email.hasMatch(email);
+  }
+
   /// A username has no spaces and is at least 3 characters long.
   static String? username(String? value) {
     final username = value?.trim() ?? '';

@@ -1,5 +1,8 @@
 import '../core/network/api_client.dart';
 import '../core/network/api_config.dart';
+import '../models/cart_item.dart';
+import '../models/coupon_model.dart';
+import '../models/course_order.dart';
 import 'catalog_repository.dart';
 
 /// Screen -> Endpoint -> Model -> Repository
@@ -46,15 +49,23 @@ class SupportRepository {
     String? attachment,
     String priority = 'normal',
   }) async {
+    final Map<String, dynamic> payload = <String, dynamic>{
+      'title': title,
+      'message': message,
+      'priority': priority,
+    };
+
+    if (subjectId != null && subjectId > 0) {
+      payload['subject_id'] = subjectId;
+    }
+
+    if (attachment != null && attachment.trim().isNotEmpty) {
+      payload['attachment'] = attachment;
+    }
+
     final data = await _api.post<dynamic>(
       ApiEndpoints.support,
-      body: {
-        'title': title,
-        'message': message,
-        'subject_id': ?subjectId,
-        'attachment': ?attachment,
-        'priority': priority,
-      },
+      body: payload,
     );
     return Json.asMap(data) ?? <String, dynamic>{};
   }
@@ -87,6 +98,72 @@ class SupportRepository {
   Future<void> markSeen(int id) async {
     await _api.post<dynamic>(ApiEndpoints.supportTicketSeen(id));
   }
+
+  // ---------------------------------------------------------------------------
+  // Auto-created enrollment requests
+  // ---------------------------------------------------------------------------
+
+  /// Subject names that mean "I want to buy a new course", best match first.
+  ///
+  /// The live backend ships exactly four subjects
+  /// (`خرید دوره های جدید`, `مشکل در خرید دوره ها`, `خرید های قبل`,
+  /// `درخواست دوره های قبلی خودتان`) and the first is the one a brand-new
+  /// purchase belongs to.
+  static const List<String> _newPurchaseHints = <String>[
+    'خرید دوره های جدید',
+    'خرید دوره جدید',
+    'خرید دوره',
+    'ثبت نام دوره',
+    'ثبت نام',
+  ];
+
+  /// Picks the subject a paid-registration ticket should be filed under.
+  ///
+  /// Matching is by **name**, never by id: ids are database-assigned and would
+  /// silently point at the wrong subject on another deployment. The hint list is
+  /// walked in order, so a specific phrase always beats a generic one.
+  ///
+  /// Returns `null` when nothing matches. `TicketCreate.subject_id` is nullable,
+  /// so the ticket is still created — just without a subject. Guessing
+  /// `results.first` would be worse: the live endpoint returns subjects newest
+  /// first, so the first row is «درخواست دوره های قبلی خودتان», the opposite of
+  /// what a new purchase needs.
+  Future<int?> resolveNewPurchaseSubjectId() async {
+    try {
+      final page = await fetchSubjects();
+
+      final subjects = <({int id, String name})>[];
+      for (final json in page.items) {
+        final id = Json.asInt(json['id']) ?? 0;
+        final name =
+            Json.asString(json['name']) ?? Json.asString(json['title']) ?? '';
+        if (id > 0 && name.isNotEmpty) {
+          subjects.add((id: id, name: _normalize(name)));
+        }
+      }
+
+      for (final hint in _newPurchaseHints) {
+        final needle = _normalize(hint);
+        for (final subject in subjects) {
+          if (subject.name.contains(needle)) return subject.id;
+        }
+      }
+
+      return null;
+    } catch (_) {
+      // The ticket is more valuable than its subject — never block on this.
+      return null;
+    }
+  }
+
+  /// Folds the Arabic/Persian letter variants and the zero-width non-joiner so
+  /// «دوره‌های جدید» and «دوره های جدید» compare equal.
+  static String _normalize(String value) => value
+      .replaceAll('\u200c', ' ')
+      .replaceAll('ي', 'ی')
+      .replaceAll('ك', 'ک')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
 }
 
 /// Screen -> Endpoint -> Model -> Repository
@@ -116,8 +193,8 @@ class NotificationRepository {
 
 /// Screen -> Endpoint -> Model -> Repository
 ///
-///  CartScreen     GET    v1/payments/cart/              -> page of `CartItem`
-///  CartScreen     POST   v1/payments/cart/              -> `CartItem`
+///  CartScreen     GET    v1/payments/cart/              -> `CartSummary`
+///  CartScreen     POST   v1/payments/cart/              -> void
 ///  CartScreen     DELETE v1/payments/cart/{id}/         -> void
 ///  CartScreen     DELETE v1/payments/cart/clear/        -> void
 ///  CartScreen     POST   v1/payments/cart/sync/         -> page of `CartItem`
@@ -125,6 +202,10 @@ class NotificationRepository {
 ///  OrdersScreen   GET    v1/payments/orders/            -> page of `OrderList`
 ///  CouponScreen   POST   v1/discounts/apply/validate/   -> `Coupon`
 ///  CouponScreen   GET    v1/discounts/apply/my_coupons/ -> page of `Coupon`
+///
+/// A cart row is an **enrollment request waiting for an admin**, not a basket
+/// waiting for a checkout button: a paid registration creates an order, opens a
+/// support ticket and parks the course here until the order is settled.
 /// `OrderCreateGatewayEnum` / `Gateway4f2Enum` — the values the backend accepts
 /// for `gateway`.
 ///
@@ -161,20 +242,31 @@ class ShopRepository {
 
   // cart ---------------------------------------------------------------------
 
-  Future<PagedResult> fetchCart() async {
+  /// `GET /api/v1/payments/cart/` (public) -> [CartSummary].
+  ///
+  /// The endpoint answers a **single object**, not a DRF page:
+  /// `{items, total_items, unique_courses, subtotal, total}`. Reading it with
+  /// `PagedResult.from` would wrap that whole object as one "item" and produce a
+  /// cart with a single meaningless row, so it is parsed by [CartSummary].
+  Future<CartSummary> fetchCart() async {
     final data = await _api.get<dynamic>(ApiEndpoints.cart);
-    return PagedResult.from(data);
+    final map = Json.asMap(data);
+    if (map == null) return CartSummary.empty;
+    return CartSummary.fromJson(map);
   }
 
-  Future<Map<String, dynamic>> addToCart({
-    required int courseId,
-    int quantity = 1,
-  }) async {
-    final data = await _api.post<dynamic>(
+  /// `POST /api/v1/payments/cart/` (auth).
+  ///
+  /// The schema declares this endpoint with **no request body and no response
+  /// body**, so `{course, quantity}` is the shape the app has always sent and
+  /// the response is ignored. Nothing is mirrored on the device: the cart screen
+  /// shows exactly what `GET v1/payments/cart/` returns, so a rejected POST is
+  /// visible as an empty cart rather than hidden behind a local copy.
+  Future<void> addToCart({required int courseId, int quantity = 1}) async {
+    await _api.post<dynamic>(
       ApiEndpoints.cart,
       body: {'course': courseId, 'quantity': quantity},
     );
-    return Json.asMap(data) ?? <String, dynamic>{};
   }
 
   Future<void> updateCartItem({
@@ -213,9 +305,31 @@ class ShopRepository {
     return PagedResult.from(data);
   }
 
+  /// `GET /api/v1/payments/orders/` (auth) typed as [CourseOrder].
+  ///
+  /// Not cached: an order's `status` changes the moment an admin approves it,
+  /// and a stale «در انتظار پرداخت» would hide a course the user already owns.
+  /// The list payload has no `items[]` — open an order with [fetchOrderDetails]
+  /// to get them.
+  Future<List<CourseOrder>> fetchOrderSummaries({int page = 1}) async {
+    final result = await fetchOrders(page: page);
+    return result.map(CourseOrder.fromJson);
+  }
+
   Future<Map<String, dynamic>> fetchOrder(int id) async {
     final data = await _api.get<dynamic>(ApiEndpoints.order(id));
     return Json.asMap(data) ?? <String, dynamic>{};
+  }
+
+  /// `GET /api/v1/payments/orders/{id}/` (auth) typed as [CourseOrder].
+  ///
+  /// This is the only payload that carries `items[]` (`course_title`,
+  /// `line_total`, …), which is what makes the detail screen able to name the
+  /// course an order was placed for.
+  Future<CourseOrder?> fetchOrderDetails(int id) async {
+    final raw = await fetchOrder(id);
+    if (raw.isEmpty) return null;
+    return CourseOrder.fromJson(raw);
   }
 
   /// `POST /api/v1/payments/orders/` -> `OrderCreate`
@@ -277,11 +391,50 @@ class ShopRepository {
     int? courseId,
     int? orderId,
   }) async {
+    final Map<String, dynamic> payload = <String, dynamic>{
+      'code': code,
+    };
+
+    if (courseId != null && courseId > 0) {
+      payload['course'] = courseId;
+    }
+
+    if (orderId != null && orderId > 0) {
+      payload['order'] = orderId;
+    }
+
     final data = await _api.post<dynamic>(
       ApiEndpoints.discountsValidate,
-      body: {'code': code, 'course': ?courseId, 'order': ?orderId},
+      body: payload,
     );
     return Json.asMap(data) ?? <String, dynamic>{};
+  }
+
+  /// Typed wrapper around [validateCoupon] that returns a single
+  /// [CouponValidation] merged with the computed amounts for [amount].
+  ///
+  /// If the API rejects the coupon (network error / 4xx) the returned value is
+  /// `CouponValidation.invalid` so the UI can render an inline message instead
+  /// of crashing.
+  ///
+  /// `POST v1/discounts/apply/validate/` is documented with **no response
+  /// body**, so a successful call may decode to an empty map. That is why the
+  /// typed code is passed as `fallbackCode`: the coupon is accepted, the user
+  /// sees the code they typed, and the authoritative `discount_amount` /
+  /// `total_amount` are read from the created order afterwards (see
+  /// `createOrder`).
+  Future<CouponValidation> validateCouponForAmount({
+    required String code,
+    required int amount,
+    int? courseId,
+  }) async {
+    try {
+      final raw = await validateCoupon(code: code, courseId: courseId);
+      final coupon = CouponValidation.fromJson(raw, fallbackCode: code);
+      return coupon.applyToAmount(amount);
+    } catch (_) {
+      return CouponValidation.invalid(code).applyToAmount(amount);
+    }
   }
 
   /// `GET /api/v1/discounts/apply/my_coupons/` (auth)

@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../models/explore_video.dart';
+import '../../../widgets/video_thumbnail_view.dart';
 
 class ExploreVideoCard extends StatelessWidget {
   final ExploreVideo video;
@@ -30,8 +31,18 @@ class ExploreVideoCard extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                _VideoThumbnail(
+                VideoThumbnailView(
                   imageUrl: video.thumbnail,
+                  videoUrl: video.videoUrl,
+                  placeholder: _Placeholder(),
+                  // Explore already showed a determinate download indicator for a
+                  // cover; it keeps it, byte-for-byte. A frame taken from the
+                  // video shows the placeholder instead, because there is no
+                  // download to report progress about.
+                  loading: (
+                    BuildContext context,
+                    ImageChunkEvent? progress,
+                  ) => _CoverLoading(progress: progress),
                 ),
 
                 // لایه خیلی ظریف روی تصویر
@@ -58,62 +69,6 @@ class ExploreVideoCard extends StatelessWidget {
   }
 }
 
-class _VideoThumbnail extends StatelessWidget {
-  final String imageUrl;
-
-  const _VideoThumbnail({
-    required this.imageUrl,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (imageUrl.trim().isEmpty) {
-      return _Placeholder();
-    }
-
-    return Image.network(
-      imageUrl,
-      width: double.infinity,
-      height: double.infinity,
-      fit: BoxFit.cover,
-      filterQuality: FilterQuality.medium,
-      loadingBuilder: (
-        BuildContext context,
-        Widget child,
-        ImageChunkEvent? loadingProgress,
-      ) {
-        if (loadingProgress == null) {
-          return child;
-        }
-
-        return Container(
-          color: AppColors.field,
-          alignment: Alignment.center,
-          child: SizedBox(
-            width: 22.w,
-            height: 22.w,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: AppColors.primary,
-              value: loadingProgress.expectedTotalBytes != null
-                  ? loadingProgress.cumulativeBytesLoaded /
-                      loadingProgress.expectedTotalBytes!
-                  : null,
-            ),
-          ),
-        );
-      },
-      errorBuilder: (
-        BuildContext context,
-        Object error,
-        StackTrace? stackTrace,
-      ) {
-        return _Placeholder();
-      },
-    );
-  }
-}
-
 class _Placeholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -124,6 +79,35 @@ class _Placeholder extends StatelessWidget {
         Icons.play_circle_outline_rounded,
         size: 34.sp,
         color: AppColors.textSecondary,
+      ),
+    );
+  }
+}
+
+/// The determinate download indicator the card has always shown while a cover
+/// loads — unchanged, only moved behind [VideoThumbnailView].
+class _CoverLoading extends StatelessWidget {
+  final ImageChunkEvent? progress;
+
+  const _CoverLoading({this.progress});
+
+  @override
+  Widget build(BuildContext context) {
+    final int? total = progress?.expectedTotalBytes;
+
+    return Container(
+      color: AppColors.field,
+      alignment: Alignment.center,
+      child: SizedBox(
+        width: 22.w,
+        height: 22.w,
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          color: AppColors.primary,
+          value: total != null && total > 0
+              ? progress!.cumulativeBytesLoaded / total
+              : null,
+        ),
       ),
     );
   }

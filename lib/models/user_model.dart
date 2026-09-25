@@ -65,6 +65,7 @@ class UserModel {
     this.lastName,
     this.fullName,
     this.avatar,
+    this.bannerImage,
     this.gender,
     this.birthDate,
     this.bio,
@@ -84,6 +85,7 @@ class UserModel {
   final String? lastName;
   final String? fullName;
   final String? avatar;
+  final String? bannerImage;
   final UserGender? gender;
   final DateTime? birthDate;
   final String? bio;
@@ -97,6 +99,13 @@ class UserModel {
   /// Absolute avatar url ready for `Image.network`.
   String? get avatarUrl {
     final value = avatar;
+    if (value == null || value.isEmpty) return null;
+    return ApiConfig.mediaUrl(value);
+  }
+
+  /// Absolute banner image url ready for `Image.network`.
+  String? get bannerImageUrl {
+    final value = bannerImage;
     if (value == null || value.isEmpty) return null;
     return ApiConfig.mediaUrl(value);
   }
@@ -137,6 +146,9 @@ class UserModel {
       fullName: _emptyToNull(Json.asString(json['full_name'])) ??
           (fallbackFullName.isEmpty ? null : fallbackFullName),
       avatar: _emptyToNull(Json.asString(json['avatar'])),
+      bannerImage: _emptyToNull(Json.asString(json['banner_image']) ??
+          Json.asString(json['banner']) ??
+          Json.asString(json['profile_banner'])),
       gender: UserGender.fromValue(Json.asString(json['gender'])),
       birthDate: Json.asDate(json['birth_date']),
       bio: _emptyToNull(Json.asString(json['bio'])),
@@ -158,6 +170,7 @@ class UserModel {
     'last_name': lastName,
     'full_name': fullName,
     'avatar': avatar,
+    'banner_image': bannerImage,
     'gender': gender?.value,
     'birth_date': birthDate?.toIso8601String().split('T').first,
     'bio': bio,
@@ -176,6 +189,7 @@ class UserModel {
     String? lastName,
     String? fullName,
     String? avatar,
+    String? bannerImage,
     UserGender? gender,
     DateTime? birthDate,
     String? bio,
@@ -189,6 +203,7 @@ class UserModel {
     lastName: lastName ?? this.lastName,
     fullName: fullName ?? this.fullName,
     avatar: avatar ?? this.avatar,
+    bannerImage: bannerImage ?? this.bannerImage,
     gender: gender ?? this.gender,
     birthDate: birthDate ?? this.birthDate,
     bio: bio ?? this.bio,

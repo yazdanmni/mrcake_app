@@ -46,6 +46,7 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen> {
     try {
       final result = await RemoteLoader.list<Course>(
         label: 'teacher.courses.${widget.teacherId}',
+        seed: const [],
         fetch: () => _repository.fetchCourses(teacherId: widget.teacherId),
         refresh: refresh,
       );

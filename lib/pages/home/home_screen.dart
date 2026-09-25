@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mr_cake_project/core/network/remote_data.dart';
 import 'package:mr_cake_project/core/theme/app_colors.dart';
+import 'package:mr_cake_project/data/categories_data.dart';
+import 'package:mr_cake_project/data/courses_data.dart';
 import 'package:mr_cake_project/models/banner_model.dart' as api;
 import 'package:mr_cake_project/models/category_model.dart';
 import 'package:mr_cake_project/models/course.dart';
@@ -54,6 +56,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _load({bool refresh = false}) async {
     final categoriesRequest = RemoteLoader.list<CategoryModel>(
       label: 'home.categories',
+      seed: CategoriesData.categories,
       refresh: refresh,
       fetch: () async {
         // `featured` is the curated home grid; the full list is the fallback.
@@ -65,6 +68,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final coursesRequest = RemoteLoader.list<Course>(
       label: 'home.courses',
+      seed: CoursesData.courses,
       refresh: refresh,
       fetch: () async {
         var courses = await _repository.fetchFeaturedCourses();
@@ -224,26 +228,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ),
                           ),
-                          Container(
-                            width: 95.w,
-                            height: 33.h,
-                            decoration: BoxDecoration(
-                              color: AppColors.primary,
-                              borderRadius: BorderRadius.all(
-                                Radius.circular(8.r),
-                              ),
-                            ),
-                            child: Center(
-                              child: Text(
-                                'مشاهده همه',
-                                style: TextStyle(
-                                  fontSize: 16.sp,
-                                  fontFamily: 'bshabnam',
-                                  color: AppColors.white,
-                                ),
-                              ),
-                            ),
-                          ),
+
                         ],
                       ),
                     ),
@@ -266,10 +251,10 @@ class _HomeScreenState extends State<HomeScreen> {
                           AppRouter.toTeachers(context);
                         },
                         onStudentsTap: () {
-                          // TODO: رفتن به صفحه هنرجوها
+                          AppRouter.toStudents(context);
                         },
                         onRecipesTap: () {
-                          // TODO: رفتن به صفحه رسپی‌ها
+                          AppRouter.toRecipes(context);
                         },
                       ),
                     ),
@@ -299,25 +284,8 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ),
                           ),
-                          Container(
-                            width: 95.w,
-                            height: 33.h,
-                            decoration: BoxDecoration(
-                              color: AppColors.primary,
-                              borderRadius: BorderRadius.all(
-                                Radius.circular(8.r),
-                              ),
-                            ),
-                            child: Center(
-                              child: Text(
-                                'مشاهده همه',
-                                style: TextStyle(
-                                  fontSize: 16.sp,
-                                  fontFamily: 'bshabnam',
-                                  color: AppColors.white,
-                                ),
-                              ),
-                            ),
+                          _ViewAllButton(
+                            onTap: () => AppRouter.toCourses(context),
                           ),
                         ],
                       ),
@@ -334,6 +302,47 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// «مشاهده همه» — the small primary pill at the end of every section header.
+///
+/// It used to be a bare `Container` with no gesture attached, so tapping it did
+/// nothing at all. The geometry, colours and typography are unchanged; only the
+/// tap handler is new.
+class _ViewAllButton extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _ViewAllButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      // The pill is mostly padding around a short label, so the whole box has
+      // to be hit-testable.
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: 95.w,
+        height: 33.h,
+        decoration: BoxDecoration(
+          color: AppColors.primary,
+          borderRadius: BorderRadius.all(
+            Radius.circular(8.r),
+          ),
+        ),
+        child: Center(
+          child: Text(
+            'مشاهده همه',
+            style: TextStyle(
+              fontSize: 16.sp,
+              fontFamily: 'bshabnam',
+              color: AppColors.white,
+            ),
           ),
         ),
       ),

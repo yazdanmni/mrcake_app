@@ -40,6 +40,14 @@ dependencies:
   image_picker: ^1.2.3
   image_cropper: ^12.2.1
   video_player: ^2.9.2
+  path: ^1.9.0
+
+  # Grabs a frame out of a video so a video work can show a real thumbnail
+  # instead of a grey placeholder. Uses the platform's own thumbnailer
+  # (`MediaMetadataRetriever` on Android, `AVAssetImageGenerator` on iOS), so
+  # there is no decoder to bundle. The backend sends **no** poster frame for a
+  # video — see `VideoThumbnailService`.
+  fc_native_video_thumbnail: ^3.0.1
   shared_preferences: ^2.5.3
   package_info_plus: ^8.3.0
   dio: ^5.11.1
@@ -62,6 +70,19 @@ dev_dependencies:
   # instead of really opening a browser. Version follows url_launcher's own
   # constraint, so it stays in lock step with the app dependency.
   url_launcher_platform_interface: ^2.3.2
+
+  # Lets the portfolio tests stand in a fake video platform, so they can assert
+  # that the player is built and told to play without a real decoder. Version
+  # follows video_player's own constraint, so it stays in lock step with the app
+  # dependency.
+  video_player_platform_interface: ^6.9.0
+
+# Patching the plugin's Android build file so the app can build with AGP 9.
+# The published version hard-codes a nonexistent AGP version (9.0.1); this
+# override points to a vendored copy with the build file fixed.
+dependency_overrides:
+  fc_native_video_thumbnail:
+    path: third_party/fc_native_video_thumbnail
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

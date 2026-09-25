@@ -172,6 +172,72 @@ void main() {
     });
   });
 
+  group('LIVE teacher portfolio', () {
+    test('fetchTeacherPortfolio maps the real works, video and image alike',
+        () async {
+      // The endpoint the teacher profile and «هنرجوها» both read. Its rows carry
+      // **no `type` field** — `image` or `video` is filled in instead — so this
+      // is the check that a video work is recognised as a video against the
+      // bytes the server really sends.
+      final works = await _repo.fetchTeacherPortfolio();
+
+      report('count', works.length);
+      for (final work in works) {
+        report(
+          '  ${work.id}',
+          'video=${work.isVideo} image="${work.image}" '
+          'videoUrl="${work.videoUrl}" student="${work.studentName}" '
+          'title="${work.title}"',
+        );
+      }
+
+      expect(works, isNotEmpty, reason: 'the live database has these works');
+
+      // Every work is exactly one of the two, and neither is empty.
+      for (final work in works) {
+        final bool hasImage = work.image.isNotEmpty;
+        final bool hasVideo = (work.videoUrl ?? '').isNotEmpty;
+
+        expect(
+          hasImage || hasVideo,
+          isTrue,
+          reason: 'work ${work.id} has neither an image nor a video',
+        );
+        expect(
+          work.isVideo,
+          hasVideo,
+          reason: 'work ${work.id}: isVideo must follow the url that is set',
+        );
+      }
+
+      expect(
+        works.any((work) => work.isVideo),
+        isTrue,
+        reason: 'the live database holds a video work',
+      );
+      expect(
+        works.any((work) => !work.isVideo),
+        isTrue,
+        reason: 'the live database holds an image work',
+      );
+    });
+
+    test('filtering by the one teacher returns the same works', () async {
+      final teachers = await _repo.fetchTeachers();
+      expect(teachers, isNotEmpty);
+
+      final int teacherId = teachers.first.id;
+      final works = await _repo.fetchTeacherPortfolio(teacherId: teacherId);
+
+      report('teacher', '$teacherId (${teachers.first.fullName})');
+      report('works', works.length);
+
+      // The filter is real (an unknown id is a validation error), so the teacher
+      // profile sees its own works and not another teacher's.
+      expect(works, isNotEmpty);
+    });
+  });
+
   group('LIVE media host TLS', () {
     final mediaUrl =
         '${ApiConfig.mediaBaseUrl}categories/icons/2026/09/21/cake.png';

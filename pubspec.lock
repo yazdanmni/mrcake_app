@@ -113,6 +113,13 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.3.3"
+  fc_native_video_thumbnail:
+    dependency: "direct main"
+    description:
+      path: "third_party/fc_native_video_thumbnail"
+      relative: true
+    source: path
+    version: "3.0.1"
   ffi:
     dependency: transitive
     description:
@@ -470,7 +477,7 @@ packages:
     source: hosted
     version: "3.2.1"
   path:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: path
       sha256: "75cca69d1490965be98c73ceaea117e8a04dd21217b37b292c9ddbec0d955bc5"
@@ -795,7 +802,7 @@ packages:
     source: hosted
     version: "2.12.0"
   video_player_platform_interface:
-    dependency: transitive
+    dependency: "direct dev"
     description:
       name: video_player_platform_interface
       sha256: "92c0fbabe20c788e71fd10d26cea998d0d253282e65d145aed0818731cf593ce"

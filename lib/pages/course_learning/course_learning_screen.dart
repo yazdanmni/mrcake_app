@@ -18,6 +18,31 @@ class CourseLearningScreen extends StatefulWidget {
     required this.details,
   });
 
+  /// Opens the learning screen for [course] from anywhere.
+  ///
+  /// [details] is optional because the two entry points differ: the course
+  /// details screen already holds the real payload and hands it over, while the
+  /// profile only has a [Course] from `GET v1/courses/enrollments/`. In that
+  /// second case a [CourseDetails.seedFrom] seed is used and [_refresh] replaces
+  /// it with the server payload — so tapping a course in the profile goes
+  /// straight to the content instead of detouring through a details screen.
+  ///
+  /// Returns when the screen is popped, so a caller can refresh afterwards.
+  static Future<void> open(
+    BuildContext context, {
+    required Course course,
+    CourseDetails? details,
+  }) {
+    return Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => CourseLearningScreen(
+          course: course,
+          details: details ?? CourseDetails.seedFrom(course),
+        ),
+      ),
+    );
+  }
+
   @override
   State<CourseLearningScreen> createState() =>
       _CourseLearningScreenState();

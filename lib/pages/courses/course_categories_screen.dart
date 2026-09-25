@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mr_cake_project/core/network/remote_data.dart';
 import 'package:mr_cake_project/core/theme/app_colors.dart';
+import 'package:mr_cake_project/data/categories_data.dart';
+import 'package:mr_cake_project/data/courses_data.dart';
 import 'package:mr_cake_project/models/category_model.dart';
 import 'package:mr_cake_project/models/course.dart';
 import 'package:mr_cake_project/pages/course_details/course_details_screen.dart';
@@ -45,6 +47,7 @@ class _CourseCategoriesScreenState extends State<CourseCategoriesScreen> {
   Future<void> _load() async {
     final categoriesRequest = RemoteLoader.list<CategoryModel>(
       label: 'categories.tree',
+      seed: CategoriesData.categories,
       fetch: () async {
         // The tree endpoint also carries the children, so it is preferred and
         // the flat list is the fallback when the tree is unavailable.
@@ -56,6 +59,7 @@ class _CourseCategoriesScreenState extends State<CourseCategoriesScreen> {
 
     final coursesRequest = RemoteLoader.list<Course>(
       label: 'categories.courses',
+      seed: CoursesData.courses,
       fetch: () => _repository.fetchCourses(),
     );
 
@@ -73,8 +77,11 @@ class _CourseCategoriesScreenState extends State<CourseCategoriesScreen> {
   /// Re-queries the backend for the selected category. The local seed is
   /// filtered too, so the fallback matches the active chip.
   Future<void> _applyFilter() async {
+    final filteredSeed = CoursesData.coursesByCategory(_selectedCategoryId);
+
     final result = await RemoteLoader.list<Course>(
       label: 'categories.filtered',
+      seed: filteredSeed,
       fetch: () => _repository.fetchCourses(categoryId: _selectedCategoryId),
     );
 

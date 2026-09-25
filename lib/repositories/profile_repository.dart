@@ -131,12 +131,18 @@ class ProfileRepository {
   /// `PATCH /api/v1/accounts/profile/`
   ///
   /// Only the provided fields are sent, matching the `PatchedUser` schema.
+  ///
+  /// Note: `bannerImageUrl` is kept as a parameter for call-site compatibility.
+  /// The backend schema (`PatchedCompleteProfile`) does not currently expose
+  /// a writable banner field, so the value is **never forwarded to the API**
+  /// and must be persisted client-side (SessionManager cache).
   Future<UserModel> updateProfile({
     String? username,
     String? firstName,
     String? lastName,
     String? email,
     String? avatarUrl,
+    String? bannerImageUrl,
     UserGender? gender,
     DateTime? birthDate,
     String? bio,
@@ -147,6 +153,7 @@ class ProfileRepository {
     if (lastName != null) body['last_name'] = lastName;
     if (email != null) body['email'] = email;
     if (avatarUrl != null) body['avatar'] = avatarUrl;
+    // banner_image intentionally not added to body – not in the DRF schema.
     if (gender != null) body['gender'] = gender.value;
     if (birthDate != null) {
       body['birth_date'] = birthDate.toIso8601String().split('T').first;

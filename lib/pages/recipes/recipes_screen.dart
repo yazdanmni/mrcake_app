@@ -11,6 +11,18 @@ import '../../core/network/remote_data.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/recipe.dart';
 
+/// «رسپی‌ها» — the standalone recipe library.
+///
+/// Two rules define this screen:
+///
+///  1. **Only recipes that belong to no course.** A recipe with a `course` is
+///     part of what that course teaches, so it is filtered out (see
+///     [_RecipesScreenState._loadRecipes]);
+///  2. it is never a bottom-navigation tab — it is opened from the home
+///     «رسپی‌ها» shortcut — so it always shows a back button.
+///
+/// Every dimension goes through ScreenUtil, so the two-column grid and the
+/// cards scale with the device instead of overflowing.
 class RecipesScreen extends StatefulWidget {
   const RecipesScreen({super.key});
 
@@ -97,13 +109,22 @@ class _RecipesScreenState extends State<RecipesScreen> {
       if (!mounted) return;
 
       setState(() {
-        final filteredNewRecipes = recipesResult.data
-            .where((recipe) => recipe.featured == true && recipe.courseId == null)
-            .toList();
-        _recipes.addAll(filteredNewRecipes);
+        // Only **standalone** recipes belong on this screen. A recipe whose
+        // `course` is set is part of a course — it is taught inside that
+        // course, so listing it here would hand out what the course sells.
+        //
+        // The API cannot express "course is empty" (its filters are `course`,
+        // `category`, `featured`, `difficulty`, `is_active` — no `course__isnull`),
+        // so the exclusion is done here. `RecipeList.course` is a plain
+        // nullable id, which is what `Recipe.courseId` parses.
+        _recipes.addAll(recipesResult.data);
         _filteredRecipes = List.from(_recipes); // Update filtered list too
+
+        // Advance on what the *backend* returned, not on what survived the
+        // filter: a page whose every row belongs to a course would otherwise
+        // look like the end of the list and silently hide the pages after it.
         _currentPage++;
-        _hasMoreRecipes = filteredNewRecipes.isNotEmpty; // Check if there are any *filtered* new recipes
+        _hasMoreRecipes = recipesResult.data.isNotEmpty;
       });
     } finally {
       if (mounted) {
@@ -565,28 +586,18 @@ class _RecipesScreenState extends State<RecipesScreen> {
     );
   }
 
-  SliverGrid _buildRecipesGrid() {
+  Widget _buildRecipesGrid() {
     if (_filteredRecipes.isEmpty) {
-      return SliverGrid(
-        delegate: SliverChildListDelegate([
-          Center(
-            child: Text(
-              'رسپی‌ای پیدا نشد',
-              textDirection: TextDirection.rtl,
-              style: TextStyle(
-                fontFamily: 'PinarB',
-                fontSize: 17.sp,
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ),
-        ]),
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          mainAxisSpacing: 20.h,
-          crossAxisSpacing: 14.w,
-          childAspectRatio: .72,
-        ),
+      // Still fetching: the spinner further down the sliver list is the whole
+      // story, so show nothing rather than flashing an empty state.
+      if (_isLoadingMore) return const SliverToBoxAdapter();
+
+      // A search that matched nothing deserves a different sentence from a
+      // library that is genuinely empty.
+      return SliverToBoxAdapter(
+        child: _searchController.text.trim().isEmpty
+            ? _buildEmptyState()
+            : _buildNoResults(),
       );
     }
 
@@ -613,6 +624,66 @@ class _RecipesScreenState extends State<RecipesScreen> {
         mainAxisSpacing: 24.h,
         crossAxisSpacing: 14.w,
         childAspectRatio: .67,
+      ),
+    );
+  }
+
+  /// Shown when the standalone library itself is empty.
+  ///
+  /// Same shape as the empty state the courses screens use — an icon over a
+  /// centred line — so «رسپی‌ها» reads like the rest of the app instead of a
+  /// bare sentence floating inside a grid cell.
+  Widget _buildEmptyState() {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 25.w, vertical: 50.h),
+      child: Column(
+        children: [
+          Icon(
+            Icons.restaurant_menu_outlined,
+            size: 52.sp,
+            color: AppColors.premium,
+          ),
+          SizedBox(height: 15.h),
+          Text(
+            'هنوز رسپی مستقلی اضافه نشده. 🍰\n\nرسپی‌هایی که به هیچ دوره‌ای وصل نیستن اینجا نمایش داده می‌شن.\n\nبه‌زودی رسپی‌های خوشمزه‌ی جدید اینجا منتظرت می‌مونن!',
+            textAlign: TextAlign.center,
+            textDirection: TextDirection.rtl,
+            style: TextStyle(
+              fontFamily: 'bshabnam',
+              fontSize: 16.sp,
+              color: AppColors.textPrimary,
+              height: 1.8,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Shown when a search matched nothing — the library may well have recipes.
+  Widget _buildNoResults() {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 25.w, vertical: 50.h),
+      child: Column(
+        children: [
+          Icon(
+            Icons.search_off_rounded,
+            size: 52.sp,
+            color: AppColors.premium,
+          ),
+          SizedBox(height: 15.h),
+          Text(
+            'رسپی‌ای پیدا نشد',
+            textAlign: TextAlign.center,
+            textDirection: TextDirection.rtl,
+            style: TextStyle(
+              fontFamily: 'bshabnam',
+              fontSize: 16.sp,
+              color: AppColors.textPrimary,
+              height: 1.8,
+            ),
+          ),
+        ],
       ),
     );
   }

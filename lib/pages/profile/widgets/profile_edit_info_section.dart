@@ -9,20 +9,11 @@ class ProfileEditInfoSection extends StatefulWidget {
     super.key,
     this.firstName,
     this.lastName,
-    this.phoneNumber,
     this.onSave,
   });
 
-  /// نام واقعی کاربر. اگر `null` باشد همان مقدار نمایشی قبلی نشان داده می‌شود.
   final String? firstName;
-
-  /// نام خانوادگی واقعی کاربر.
   final String? lastName;
-
-  /// شماره تلفن واقعی کاربر.
-  final String? phoneNumber;
-
-  /// مقادیر ویرایش‌شده را به صفحه پروفایل می‌دهد تا به API فرستاده شوند.
   final void Function(String firstName, String lastName)? onSave;
 
   @override
@@ -34,7 +25,6 @@ class _ProfileEditInfoSectionState
     extends State<ProfileEditInfoSection> {
   late final TextEditingController _firstNameController;
   late final TextEditingController _lastNameController;
-  late final TextEditingController _phoneController;
 
   @override
   void initState() {
@@ -47,20 +37,14 @@ class _ProfileEditInfoSectionState
     _lastNameController = TextEditingController(
       text: widget.lastName ?? 'منوچهری',
     );
-
-    _phoneController = TextEditingController(
-      text: widget.phoneNumber ?? '09010674203',
-    );
   }
 
   @override
   void didUpdateWidget(ProfileEditInfoSection oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // پروفایل بعد از اولین رسم از API می‌آید، پس مقادیر باید هم‌گام شوند.
     _syncController(_firstNameController, widget.firstName);
     _syncController(_lastNameController, widget.lastName);
-    _syncController(_phoneController, widget.phoneNumber);
   }
 
   void _syncController(TextEditingController controller, String? value) {
@@ -74,7 +58,6 @@ class _ProfileEditInfoSectionState
   void dispose() {
     _firstNameController.dispose();
     _lastNameController.dispose();
-    _phoneController.dispose();
 
     super.dispose();
   }
@@ -94,7 +77,6 @@ class _ProfileEditInfoSectionState
       padding: EdgeInsets.symmetric(horizontal: 25.w),
       child: Column(
         children: [
-          // نام
           _ProfileEditRow(
             label: ':نام',
             controller: _firstNameController,
@@ -102,28 +84,13 @@ class _ProfileEditInfoSectionState
 
           SizedBox(height: 7.h),
 
-          // نام خانوادگی
           _ProfileEditRow(
             label: ':نام خانوادگی',
             controller: _lastNameController,
           ),
 
-          SizedBox(height: 7.h),
-
-          // شماره تلفن
-          _ProfileEditRow(
-            label: ':شماره تلفن',
-            controller: _phoneController,
-            keyboardType: TextInputType.phone,
-            inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-            ],
-          ),
-
-          // فاصله فیلدها تا دکمه
           SizedBox(height: 14.h),
 
-          // دکمه ذخیره
           SizedBox(
             width: double.infinity,
             height: 50.h,
@@ -155,10 +122,6 @@ class _ProfileEditInfoSectionState
   }
 }
 
-// ===============================================================
-// Row
-// ===============================================================
-
 class _ProfileEditRow extends StatelessWidget {
   const _ProfileEditRow({
     required this.label,
@@ -182,10 +145,6 @@ class _ProfileEditRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         textDirection: TextDirection.rtl,
         children: [
-          // =====================================================
-          // Label - سمت راست
-          // =====================================================
-
           Text(
             label,
             textAlign: TextAlign.right,
@@ -196,10 +155,6 @@ class _ProfileEditRow extends StatelessWidget {
               color: AppColors.textPrimary,
             ),
           ),
-
-          // =====================================================
-          // Field - سمت چپ
-          // =====================================================
 
           Flexible(
             child: Container(

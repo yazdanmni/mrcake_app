@@ -13,6 +13,8 @@ class Teacher {
   final String lastName;
   final String profileImage;
 
+  final int userId;
+
   final int courseCount;
   final int experienceYears;
   final int studentsCount;
@@ -53,6 +55,7 @@ class Teacher {
     required this.isVerified,
     required this.about,
     required this.portfolio,
+    required this.userId,
     this.expertise = '',
     this.rating = '',
     this.resume,
@@ -84,6 +87,7 @@ class Teacher {
       isVerified: isVerified,
       about: about,
       portfolio: items,
+      userId: userId,
       expertise: expertise,
       rating: rating,
       resume: resume,
@@ -118,6 +122,8 @@ class Teacher {
       profileImage: _mediaUrl(
         user?['avatar'] ?? json['profile_image'] ?? json['avatar'],
       ),
+
+      userId: Json.asInt(user?['id']) ?? 0,
 
       courseCount:
           Json.asInt(json['courses_count']) ??
@@ -199,11 +205,21 @@ class Teacher {
   }
 }
 
-/// `TeacherPortfolioItem` -> `GET /api/v1/content/teacher-portfolio/`
+/// A work in a teacher's portfolio.
 ///
-/// The backend stores a `media` **id** plus a `type` (`image` | `video`), so
-/// [image] / [videoUrl] are resolved by the repository through
-/// `GET /api/v1/media/{id}/`.
+/// **Two backend resources feed this one model**, because the app reads both:
+///
+/// * `GET /api/v1/accounts/teacher-portfolios/` -> `TeacherPortfolio`
+///   (`{id, student, student_name, title, description, image, video, is_active}`)
+///   — the **teacher profile** and the «هنرجوها» gallery read this one. `image`
+///   and `video` are **direct urls** and exactly one of them is set.
+/// * `GET /api/v1/content/teacher-portfolio/` -> `TeacherPortfolioItem`
+///   (`{id, type, description, position, is_published, teacher, media}`) — the
+///   older shape, which carries a `type` enum and only a `media` **id** that the
+///   repository resolves through `GET /api/v1/media/{id}/`.
+///
+/// The two are kept in one type so the grid and the viewer are shared and
+/// cannot drift apart.
 class TeacherPortfolioItem {
   final int id;
 
@@ -219,6 +235,19 @@ class TeacherPortfolioItem {
 
   /// توضیحی که استاد برای نمونه کار نوشته
   final String description;
+
+  // ---------------------------------------------------------------------------
+  // Fields of the `accounts/teacher-portfolios/` shape.
+  // ---------------------------------------------------------------------------
+
+  /// «عنوان نمونه کار» — only the accounts shape has one.
+  final String title;
+
+  /// The student the work belongs to (the account **id**).
+  final int studentId;
+
+  /// «هنرجو» — the student's name, resolved by the backend.
+  final String studentName;
 
   // ---------------------------------------------------------------------------
   // Extra fields provided by the backend (optional).
@@ -237,6 +266,9 @@ class TeacherPortfolioItem {
     required this.isVideo,
     this.videoUrl,
     required this.description,
+    this.title = '',
+    this.studentId = 0,
+    this.studentName = '',
     this.mediaId,
     this.teacherId = 0,
     this.position = 0,
@@ -245,7 +277,6 @@ class TeacherPortfolioItem {
 
   factory TeacherPortfolioItem.fromJson(Map<String, dynamic> json) {
     final type = Json.asString(json['type']);
-    final isVideo = type == 'video';
 
     final image = _mediaUrl(
       json['image'] ?? json['thumbnail'] ?? json['media_url'],
@@ -253,12 +284,23 @@ class TeacherPortfolioItem {
 
     final video = Json.asString(json['video'] ?? json['video_url']);
 
+    // ⚠️ `type` exists **only** on the `content/` shape. On the
+    // `accounts/teacher-portfolios/` shape the backend distinguishes the two
+    // media by which url it filled in, so deriving `isVideo` from `type` alone
+    // would mark every accounts row as a picture: a video work would then be
+    // rendered from an empty `image` (a placeholder) and its player would never
+    // be built. A non-empty `video` url is the signal that is true of both.
+    final isVideo = type == 'video' || (video != null && video.isNotEmpty);
+
     return TeacherPortfolioItem(
       id: Json.asInt(json['id']) ?? 0,
       image: image,
       isVideo: isVideo,
       videoUrl: video == null || video.isEmpty ? null : _mediaUrl(video),
       description: Json.asString(json['description']) ?? '',
+      title: Json.asString(json['title']) ?? '',
+      studentId: Json.asInt(json['student']) ?? 0,
+      studentName: Json.asString(json['student_name']) ?? '',
       mediaId: Json.asInt(json['media']),
       teacherId: Json.asInt(json['teacher']) ?? 0,
       position: Json.asInt(json['position']) ?? 0,
@@ -274,6 +316,9 @@ class TeacherPortfolioItem {
       isVideo: isVideo,
       videoUrl: video ?? videoUrl,
       description: description,
+      title: title,
+      studentId: studentId,
+      studentName: studentName,
       mediaId: mediaId,
       teacherId: teacherId,
       position: position,
@@ -288,6 +333,9 @@ class TeacherPortfolioItem {
       'is_video': isVideo,
       if (videoUrl != null) 'video_url': videoUrl,
       'description': description,
+      if (title.isNotEmpty) 'title': title,
+      if (studentId != 0) 'student': studentId,
+      if (studentName.isNotEmpty) 'student_name': studentName,
       if (mediaId != null) 'media': mediaId,
       'teacher': teacherId,
       'position': position,

@@ -13,6 +13,7 @@ class Course {
   final String image;
   final String title;
 
+  final int instructorId;
   final String instructorFirstName;
   final String instructorLastName;
   final String instructorImage;
@@ -76,6 +77,7 @@ class Course {
     required this.instructorFirstName,
     required this.instructorLastName,
     required this.instructorImage,
+    required this.instructorId,
     required this.price,
     required this.currency,
     required this.lessons,
@@ -105,6 +107,13 @@ class Course {
   bool get isFreeByPrice {
     final digits = price.replaceAll(RegExp(r'[^0-9]'), '');
     return digits.isEmpty || int.tryParse(digits) == 0;
+  }
+
+  /// Course price parsed as an integer.  Non-digit characters (thousands
+  /// separators, currency symbol, RTL marks, whitespace) are stripped.
+  int get priceAsInt {
+    final digits = price.replaceAll(RegExp(r'[^0-9]'), '');
+    return int.tryParse(digits) ?? 0;
   }
 
   // ---------------------------------------------------------------------------
@@ -155,6 +164,8 @@ class Course {
       instructorImage: _mediaUrl(
         teacher?['avatar'] ?? json['instructor_image'],
       ),
+
+      instructorId: Json.asInt(teacher?['id']) ?? 0,
 
       price: finalPrice.toString(),
 
