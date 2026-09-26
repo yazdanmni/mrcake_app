@@ -331,6 +331,21 @@ class Json {
     return const [];
   }
 
+  /// Reads a JSON array of ids.
+  ///
+  /// The coupon payloads carry `specific_courses` / `specific_categories` /
+  /// `exclude_courses` as arrays of integers, and a malformed entry must not
+  /// sink the whole coupon — non-numeric entries are dropped rather than
+  /// throwing.
+  static List<int> asIntList(dynamic value) {
+    if (value is! List) return const <int>[];
+
+    return value
+        .map(asInt)
+        .whereType<int>()
+        .toList(growable: false);
+  }
+
   static String? asString(dynamic value) {
     if (value == null) return null;
     if (value is String) return value;

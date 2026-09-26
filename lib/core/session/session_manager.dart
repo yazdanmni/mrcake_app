@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/auth_session.dart';
 import '../../models/user_model.dart';
+import '../../repositories/notification_repository.dart';
 import '../network/api_client.dart';
 import '../network/remote_data.dart';
 
@@ -166,6 +167,10 @@ class SessionManager extends ChangeNotifier {
     // Drop every cached response: it was fetched with the token that just went
     // away, and part of it is account-specific.
     RemoteCache.clear();
+
+    // The watch list is per-account: keeping it would remind the next user about
+    // someone else's unfinished lesson.
+    LessonWatchDog.instance.clear();
 
     notifyListeners();
 

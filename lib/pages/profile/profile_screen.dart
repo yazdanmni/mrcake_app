@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:mr_cake_project/core/network/api_exception.dart';
 import 'package:mr_cake_project/core/network/remote_data.dart';
 import 'package:mr_cake_project/core/session/session_manager.dart';
 import 'package:mr_cake_project/core/theme/app_colors.dart';
@@ -133,6 +134,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _uploadAvatar(File image) async {
+    // The repository's own message is used on failure: a dropped upload and a
+    // rejected payload need different answers, and a fixed "try again" sentence
+    // would hide which one happened.
+    String? failure;
+
     final ok = await RemoteLoader.action(
       'profile.uploadAvatar',
       () async {
@@ -144,40 +150,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (!mounted) return;
         setState(() => _user = SessionManager.instance.user);
       },
+      onError: (ApiException error) => failure = error.message,
     );
 
     if (!mounted) return;
     if (ok) {
       AppFeedback.success(context, 'تصویر پروفایل با موفقیت آپلود شد.');
     } else {
-      AppFeedback.error(context, 'آپلود تصویر ناموفق بود. دوباره تلاش کنید.');
-    }
-  }
-
-  Future<void> _uploadBanner(File image) async {
-    // NOTE: The backend `PatchedCompleteProfile` schema does not yet accept a
-    // `banner_image` field.  Therefore we still upload the file through the
-    // canonical `MediaRepository` to obtain a CDN-hosted URL, but then persist
-    // that URL **client-side** via `SessionManager.updateProfileBanner`.  The
-    // `SessionManager.user` getter transparently stitches it back onto the
-    // cached profile so the banner is rendered consistently on every screen
-    // visit, even after restarting the app.
-    final ok = await RemoteLoader.action(
-      'profile.uploadBanner',
-      () async {
-        final url = await MediaRepository.instance.uploadUrl(image);
-        await SessionManager.instance.updateProfileBanner(url);
-        if (!mounted) return;
-        final merged = SessionManager.instance.user;
-        setState(() => _user = merged);
-      },
-    );
-
-    if (!mounted) return;
-    if (ok) {
-      AppFeedback.success(context, 'بنر پروفایل با موفقیت ذخیره شد.');
-    } else {
-      AppFeedback.error(context, 'آپلود بنر ناموفق بود. دوباره تلاش کنید.');
+      AppFeedback.error(context, failure ?? 'آپلود تصویر ناموفق بود. دوباره تلاش کنید.');
     }
   }
 
@@ -233,11 +213,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     onAvatarChanged: (File? file) {
                       if (file != null) _uploadAvatar(file);
                     },
-                    onBannerChanged: (File? file) {
-                      if (file != null) _uploadBanner(file);
-                    },
                   ),
-                  SizedBox(height: 20.h),
                   ProfileInfoSection(
                     username: user?.username,
                     email: user?.email,
@@ -260,7 +236,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   SizedBox(height: 20.h),
                   ProfileQuickActionsGrid(
                     onPaymentsTap: () => AppRouter.toOrders(context),
+                    onCreditTap: () => AppRouter.toWallet(context),
                     onSupportTap: _openSupport,
+                    onGiftsTap: () => AppRouter.toGifts(context),
                   ),
                   SizedBox(height: 20.h),
                   Padding(

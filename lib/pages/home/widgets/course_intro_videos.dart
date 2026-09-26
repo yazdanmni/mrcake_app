@@ -1,13 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../models/course_intro_video.dart';
 import 'course_intro_video_card.dart';
 
+/// The «معرفی دوره ها» carousel — a horizontal strip of [CourseIntroVideoCard]s.
+///
+/// Shared by the home section and nothing else: the standalone
+/// «ویدیو های معرفی دوره» screen lays the *same* cards out as a grid instead,
+/// so a change to a card appears in both places at once.
+///
+/// Renders **nothing** ([SizedBox.shrink]) when [videos] is null or empty. There
+/// is no bundled fallback: only a course with a real `video_trailer` can produce
+/// a card, and a fabricated one would open a player with nothing to play. The
+/// home screen therefore also omits the section header in that case, rather than
+/// leaving a title above an empty strip.
 class CourseIntroVideos extends StatelessWidget {
   final ValueChanged<CourseIntroVideo>? onVideoTap;
 
-  /// Cards built from the backend course list. When it is `null` or empty the
-  /// bundled [defaultVideos] are used so the carousel is never blank.
+  /// Cards built from the backend course list.
   final List<CourseIntroVideo>? videos;
 
   const CourseIntroVideos({
@@ -100,12 +111,31 @@ class CourseIntroVideos extends StatelessWidget {
     final double thumbnailHeight =
         cardWidth * 121 / 222;
 
-    // حداکثر ارتفاع محتوای اطلاعات:
-    // عنوان دو خط + فاصله‌ها + استاد + اطلاعات پایین
-    const double informationHeight = 91;
-
     return thumbnailHeight +
-        10 +
+        10.h +
         informationHeight;
+  }
+
+  /// Height of the card's text block, in the same terms
+  /// [CourseIntroVideoCard] lays it out.
+  ///
+  /// ⚠️ **Not a plain `double`.** This used to be a hardcoded `91`, which
+  /// scales with nothing — while every line in that block is `14.sp`, and `.sp`
+  /// in this project is `value * scaleWidth`. On a phone the two agree closely
+  /// enough to hide it; at 1024×768 the text needed ~108 px more than the 91
+  /// the strip had reserved and the card painted `RenderFlex overflowed` stripes
+  /// over the home section.
+  ///
+  /// The text terms are therefore `.sp` (they follow the width) and only the
+  /// gaps are `.h` (they follow the height). A `Flexible` inside the card is the
+  /// second line of defence: this is a reservation, and a small mis-estimate
+  /// truncates a title rather than overflowing.
+  static double get informationHeight {
+    const double slack = 1.25;
+
+    final double titleLine = 14.sp * 1.35 * slack;
+    final double metaLine = 14.sp * 1.2 * slack;
+
+    return (titleLine * 2) + 7.h + metaLine + 6.h + metaLine;
   }
 }

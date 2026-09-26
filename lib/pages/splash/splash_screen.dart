@@ -10,6 +10,7 @@ import 'package:mr_cake_project/core/network/vpn_detector.dart';
 import 'package:mr_cake_project/core/router/app_router.dart';
 import 'package:mr_cake_project/core/session/session_manager.dart';
 import 'package:mr_cake_project/core/theme/app_colors.dart';
+import 'package:mr_cake_project/repositories/notification_repository.dart';
 
 /// What the splash is currently doing.
 enum _SplashPhase { checking, vpnWarning, networkError }
@@ -43,6 +44,11 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
+
+    // The hourly «ویدیو ناقص دیده شده» sweep. Started here because the splash is
+    // the one screen every launch goes through, so the schedule is running
+    // before any lesson can be opened.
+    NotificationScheduler.instance.start();
 
     // Hard safety net: whatever happens the user is never stuck on the splash.
     _safetyTimer = Timer(

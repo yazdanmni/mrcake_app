@@ -8,16 +8,28 @@ import '../../../models/course_intro_video.dart';
 
 class CourseIntroVideoCard extends StatelessWidget {
   final CourseIntroVideo video;
+
+  /// Fired by the whole card. On the home carousel this opens the course; on
+  /// the standalone teaser grid it plays the trailer.
   final VoidCallback? onTap;
+
+  /// Optional second action, offered as a small «مشاهده دوره» control under the
+  /// card. Only the standalone teaser grid passes it — the home carousel leaves
+  /// it null and is **pixel-identical** to before, because a null means the
+  /// control is not built at all.
+  final VoidCallback? onCourseTap;
 
   const CourseIntroVideoCard({
     super.key,
     required this.video,
     this.onTap,
+    this.onCourseTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final VoidCallback? courseTap = onCourseTap;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -33,10 +45,69 @@ class CourseIntroVideoCard extends StatelessWidget {
 
             SizedBox(height: 10.h),
 
-            _VideoInformation(
-              video: video,
+            // ⚠️ **`Flexible`, not a plain child.** The card is laid out inside
+            // a grid cell whose height the *grid* reserves, and that reservation
+            // cannot be exact: the text here is sized in `.sp`, which in this
+            // project scales with the screen **width**, while the cell's height
+            // comes from `.h`, which scales with the **height**. On a wide screen
+            // the two diverge and the text asks for more room than the cell
+            // reserved — which used to be a `RenderFlex overflowed by 45 pixels`
+            // at 1024×768, i.e. a visible striped stripe over a teaser card.
+            //
+            // A `Flexible` makes the block yield to whatever the cell actually
+            // gave it: the text clips with an ellipsis instead of overflowing,
+            // and on a phone — where the two scales agree — nothing changes at
+            // all. See the `_cardInfoHeight` note on the grid for the other half
+            // of this contract.
+            Flexible(
+              child: _VideoInformation(
+                video: video,
+              ),
             ),
+
+            if (courseTap != null) ...[
+              SizedBox(height: 8.h),
+              _CourseButton(onTap: courseTap),
+            ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// «مشاهده دوره» — the card's secondary action.
+///
+/// The house button shape: an `AppColors.primary` pill with `8.r` corners, the
+/// same geometry as the home section headers, so it reads as part of the app
+/// rather than a Material default.
+class _CourseButton extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _CourseButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        height: 30.h,
+        decoration: BoxDecoration(
+          color: AppColors.primary,
+          borderRadius: BorderRadius.circular(8.r),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          'مشاهده دوره',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontFamily: 'bshabnam',
+            fontSize: 13.sp,
+            color: AppColors.white,
+            height: 1,
+          ),
         ),
       ),
     );
@@ -169,86 +240,91 @@ class _VideoInformation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      textDirection: TextDirection.rtl,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _TeacherAvatar(
-          imageUrl: video.teacherAvatar,
-        ),
+    // `LayoutBuilder` + `SingleChildScrollView` would be the general answer, but
+    // a teaser card has no business being scrollable. The card is instead
+    // allowed to be shorter than the text would like — see the `Flexible` in
+    // [CourseIntroVideoCard.build] — so this block must **clip** rather than
+    // complain: a `Column` whose last line does not fit otherwise paints the
+    // yellow-and-black overflow stripe over the card.
+    //
+    // The clip is invisible in practice. It only bites when the reservation in
+    // `IntroductionVideosScreen._cardInfoHeight` is short, which happens on a
+    // screen wide enough for `.sp` to outgrow `.h` — and there the alternative
+    // is a visibly broken card.
+    return ClipRect(
+      child: Row(
+        textDirection: TextDirection.rtl,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _TeacherAvatar(
+            imageUrl: video.teacherAvatar,
+          ),
 
-        SizedBox(width: 10.w),
+          SizedBox(width: 10.w),
 
-        Expanded(
-          child: Align(
-            alignment: Alignment.topRight,
+          Expanded(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.end,
               textDirection: TextDirection.rtl,
               children: [
-                SizedBox(
-                  width: double.infinity,
-                  child: Text(
-                    video.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.right,
-                    textDirection: TextDirection.rtl,
-                    style: TextStyle(
-                      fontFamily: 'BShabnam',
-                      fontSize: 14.sp,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                      height: 1.35,
-                    ),
+                // Every line is capped and ellipsised on its own. The card can
+                // be handed less height than the text would like; capping each
+                // line means the block degrades by truncating a title rather
+                // than by pushing the following lines out of the card.
+                Text(
+                  video.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.right,
+                  textDirection: TextDirection.rtl,
+                  style: TextStyle(
+                    fontFamily: 'BShabnam',
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                    height: 1.35,
                   ),
                 ),
 
                 SizedBox(height: 7.h),
 
-                SizedBox(
-                  width: double.infinity,
-                  child: Text(
-                    'استاد ${video.teacherLastName}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.right,
-                    textDirection: TextDirection.rtl,
-                    style: TextStyle(
-                      fontFamily: 'Shabnam',
-                      fontSize: 14.sp,
-                      color: AppColors.textSecondary,
-                      height: 1.2,
-                    ),
+                Text(
+                  'استاد ${video.teacherLastName}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.right,
+                  textDirection: TextDirection.rtl,
+                  style: TextStyle(
+                    fontFamily: 'Shabnam',
+                    fontSize: 14.sp,
+                    color: AppColors.textSecondary,
+                    height: 1.2,
                   ),
                 ),
 
                 SizedBox(height: 6.h),
 
-                SizedBox(
-                  width: double.infinity,
-                  child: Text(
-                    '${_toPersianDigits(video.courseDuration)} ساعت'
-                    '  •  '
-                    '${_toPersianDigits(video.studentsCount)} هنرجو',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.right,
-                    textDirection: TextDirection.rtl,
-                    style: TextStyle(
-                      fontFamily: 'Shabnam',
-                      fontSize: 14.sp,
-                      color: AppColors.textSecondary,
-                      height: 1.2,
-                    ),
+                Text(
+                  '${_toPersianDigits(video.courseDuration)} ساعت'
+                  '  •  '
+                  '${_toPersianDigits(video.studentsCount)} هنرجو',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.right,
+                  textDirection: TextDirection.rtl,
+                  style: TextStyle(
+                    fontFamily: 'Shabnam',
+                    fontSize: 14.sp,
+                    color: AppColors.textSecondary,
+                    height: 1.2,
                   ),
                 ),
               ],
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

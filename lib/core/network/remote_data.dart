@@ -205,15 +205,24 @@ class RemoteLoader {
   /// Fire-and-forget variant used for side effects such as
   /// `toggle_favorite` or `mark_lesson`, where a failure must never break the
   /// screen the user is looking at.
+  /// Runs a write and reports success as a `bool`.
+  ///
+  /// [onError] receives the [ApiException] when one was thrown, so a caller that
+  /// needs to explain *why* a write failed — an upload the server dropped reads
+  /// very differently from a validation error — can surface the real message
+  /// instead of a generic one. Existing callers are unaffected: it defaults to
+  /// `null` and the exception is still swallowed either way.
   static Future<bool> action(
     String label,
-    Future<void> Function() run,
-  ) async {
+    Future<void> Function() run, {
+    void Function(ApiException error)? onError,
+  }) async {
     try {
       await run();
       return true;
     } on ApiException catch (error) {
       _log(label, 'action failed (${error.type.name}): ${error.message}');
+      onError?.call(error);
       return false;
     } catch (error) {
       _log(label, 'action failed: $error');

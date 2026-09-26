@@ -18,10 +18,14 @@ import '../../pages/teacher/teachers_list_screen.dart';
 import '../../repositories/auth_repository.dart';
 import '../../pages/courses/courses_screen.dart';
 import '../../pages/courses/course_categories_screen.dart';
+import '../../pages/course_learning/introduction_video_player_screen.dart';
 import '../../pages/course_learning/introduction_videos_screen.dart';
 import '../../pages/course_details/course_details_screen.dart'; // New import
+import '../../pages/gifts/gifts_screen.dart';
+import '../../pages/notifications/notifications_screen.dart';
+import '../../pages/wallet/wallet_screen.dart';
 import '../../models/course.dart'; // New import
-import '../../models/course_details.dart'; // New import
+import '../../models/course_intro_video.dart';
 // Route names, used for `RouteSettings` so the whole navigation stack is
 /// readable in the devtools / logs.
 class AppRoutes {
@@ -45,7 +49,11 @@ class AppRoutes {
   static const String cart = '/cart';
   static const String orders = '/orders';
   static const String introductionVideos = '/introduction-videos';
+  static const String introductionVideoPlayer = '/introduction-videos/player';
   static const String courseDetails = '/course/details';
+  static const String wallet = '/account/wallet';
+  static const String gifts = '/account/gifts';
+  static const String notifications = '/notifications';
 }
 // The single place where the auth flow decides which screen comes next.
 ///
@@ -286,10 +294,57 @@ class AppRouter {
         AppRoutes.introductionVideos,
       );
 
+  /// Opens one trailer in the YouTube-style player page.
+  ///
+  /// [playlist] is the grid's own list, in grid order, so the page can offer the
+  /// other trailers under the player without asking the backend again.
+  static Future<void> toIntroductionVideoPlayer(
+    BuildContext context, {
+    required CourseIntroVideo video,
+    List<CourseIntroVideo> playlist = const <CourseIntroVideo>[],
+  }) =>
+      _push(
+        context,
+        IntroductionVideoPlayerScreen(video: video, playlist: playlist),
+        AppRoutes.introductionVideoPlayer,
+      );
+
   static Future<void> toCourseDetails(BuildContext context, Course course) =>
       _push(
         context,
         CourseDetailsScreen(course: course),
         AppRoutes.courseDetails,
+      );
+
+  // ---------------------------------------------------------------------------
+  // Account
+  // ---------------------------------------------------------------------------
+
+  /// «اعتبار شما» — the in-app credit screen.
+  ///
+  /// The top-up is a support ticket underneath (there is no wallet endpoint);
+  /// see [WalletRepository] for why.
+  static Future<void> toWallet(BuildContext context) => _push(
+        context,
+        const WalletScreen(),
+        AppRoutes.wallet,
+      );
+
+  /// «هدیه‌ها» — the discount codes that belong to this user.
+  static Future<void> toGifts(BuildContext context) => _push(
+        context,
+        const GiftsScreen(),
+        AppRoutes.gifts,
+      );
+
+  // ---------------------------------------------------------------------------
+  // Notifications
+  // ---------------------------------------------------------------------------
+
+  /// «اعلان‌ها» — the read-only list the backend holds for this user.
+  static Future<void> toNotifications(BuildContext context) => _push(
+        context,
+        const NotificationsScreen(),
+        AppRoutes.notifications,
       );
 }

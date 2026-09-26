@@ -5,6 +5,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../core/media/resilient_video_loader.dart';
+import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../models/explore_video.dart';
 
@@ -127,6 +128,12 @@ class _ReelItemState extends State<_ReelItem> {
 
   String _errorMessage = '';
 
+  /// `true` when the failure was **permission**, not a missing file — see
+  /// [ExploreVideo.videoNeedsAuth]. The error panel swaps «تلاش مجدد» for a
+  /// sign-in action, because retrying a request that was refused on principle
+  /// cannot succeed.
+  bool _needsAuth = false;
+
   Timer? _hidePlayIconTimer;
 
   bool _disposed = false;
@@ -152,6 +159,21 @@ class _ReelItemState extends State<_ReelItem> {
           _isImageOnly = true;
         });
 
+        return;
+      }
+
+      // An empty url has **two** causes and they must not share a message.
+      //
+      // `v1/content/explore-videos/` is public but lists media *ids*, and
+      // `v1/media/{id}/` is auth-only — so a guest is refused the lookup and
+      // ends up here with a video that is sitting on the public CDN. Telling
+      // that user «آدرس ویدیو خالی است» is simply false and leaves them with
+      // nothing to do; the honest answer is that they have to sign in.
+      if (widget.video.videoNeedsAuth) {
+        _setError(
+          'برای پخش این ویدیو باید وارد حساب خود شوید.',
+          needsAuth: true,
+        );
         return;
       }
 
@@ -227,7 +249,7 @@ class _ReelItemState extends State<_ReelItem> {
     setState(() {});
   }
 
-  void _setError(String message) {
+  void _setError(String message, {bool needsAuth = false}) {
     if (!mounted || _disposed) return;
 
     debugPrint('🔥 VIDEO ERROR: $message');
@@ -236,6 +258,7 @@ class _ReelItemState extends State<_ReelItem> {
       _isInitialized = false;
       _hasError = true;
       _errorMessage = message;
+      _needsAuth = needsAuth;
       _isRetrying = false;
     });
   }
@@ -341,6 +364,7 @@ class _ReelItemState extends State<_ReelItem> {
       _isRetrying = true;
       _hasError = false;
       _errorMessage = '';
+      _needsAuth = false;
     });
 
     final VideoPlayerController? oldController = _controller;
@@ -474,13 +498,17 @@ class _ReelItemState extends State<_ReelItem> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.error_outline_rounded,
+              _needsAuth
+                  ? Icons.lock_outline_rounded
+                  : Icons.error_outline_rounded,
               color: Colors.white,
               size: 48.sp,
             ),
             SizedBox(height: 15.h),
             Text(
-              'پخش ویدیو با مشکل مواجه شد',
+              _needsAuth
+                  ? 'برای پخش این ویدیو وارد شوید'
+                  : 'پخش ویدیو با مشکل مواجه شد',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontFamily: 'PinarB',
@@ -512,27 +540,58 @@ class _ReelItemState extends State<_ReelItem> {
               ),
             ),
             SizedBox(height: 18.h),
-            GestureDetector(
-              onTap: _retryVideo,
-              child: Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: 24.w,
-                  vertical: 11.h,
+            // A refused lookup and a missing file need different actions:
+            // one is fixed by signing in, the other by trying the request
+            // again. Offering «تلاش مجدد» for a 401 would loop forever, and
+            // offering «ورود» for a 404 would send the user to a login screen
+            // that cannot help them.
+            if (_needsAuth)
+              GestureDetector(
+                onTap: () {
+                  Navigator.of(context).pop();
+                  AppRouter.toLogin(context);
+                },
+                child: Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 24.w,
+                    vertical: 11.h,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(11.r),
+                  ),
+                  child: Text(
+                    'ورود به حساب',
+                    style: TextStyle(
+                      fontFamily: 'bShabnam',
+                      fontSize: 13.sp,
+                      color: Colors.white,
+                    ),
+                  ),
                 ),
-                decoration: BoxDecoration(
-                  color: AppColors.primary,
-                  borderRadius: BorderRadius.circular(11.r),
-                ),
-                child: Text(
-                  _isRetrying ? 'در حال تلاش...' : 'تلاش مجدد',
-                  style: TextStyle(
-                    fontFamily: 'bShabnam',
-                    fontSize: 13.sp,
-                    color: Colors.white,
+              )
+            else
+              GestureDetector(
+                onTap: _retryVideo,
+                child: Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 24.w,
+                    vertical: 11.h,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(11.r),
+                  ),
+                  child: Text(
+                    _isRetrying ? 'در حال تلاش...' : 'تلاش مجدد',
+                    style: TextStyle(
+                      fontFamily: 'bShabnam',
+                      fontSize: 13.sp,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ),
-            ),
           ],
         ),
       ),

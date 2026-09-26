@@ -20,27 +20,7 @@ class HomeHeader extends StatelessWidget {
             children: [
               _HeaderIcon(
                 icon: Icons.notifications_none_rounded,
-                onTap: () {
-                  showDialog(
-                    context: context,
-                    builder: (BuildContext context) {
-                      return AlertDialog(
-                        title: const Text('اعلان‌ها'),
-                        content: const Text(
-                          'اعلان جدیدی وجود ندارد.',
-                        ), // Placeholder
-                        actions: <Widget>[
-                          TextButton(
-                            child: const Text('Close'),
-                            onPressed: () {
-                              Navigator.of(context).pop();
-                            },
-                          ),
-                        ],
-                      );
-                    },
-                  );
-                },
+                onTap: () => AppRouter.toNotifications(context),
               ),
 
               SizedBox(width: 8.w),

@@ -33,6 +33,14 @@ class _HomeScreenState extends State<HomeScreen> {
   List<CategoryModel> _categories = const [];
   List<Course> _courses = const [];
 
+  /// Teasers for the «معرفی دوره ها» carousel.
+  ///
+  /// Same source and same card as the standalone
+  /// [IntroductionVideosScreen] — no seed, because a course without a
+  /// `video_trailer` has no teaser at all and a fake one would open a broken
+  /// player.
+  List<CourseIntroVideo> _introVideos = const [];
+
   // `null` keeps the bundled hero asset; the API image replaces it on load.
   String? _heroImageUrl;
   String? _heroLinkUrl;
@@ -98,16 +106,28 @@ class _HomeScreenState extends State<HomeScreen> {
       fetch: _repository.fetchActiveHero,
     );
 
+    // Teasers: `GET v1/courses/` plus each course's `GET v1/courses/{id}/`
+    // trailer, already assembled by the repository. No seed — the only courses
+    // that belong in this carousel are the ones that actually have a trailer.
+    final introVideosRequest = RemoteLoader.list<CourseIntroVideo>(
+      label: 'home.introVideos',
+      seed: const <CourseIntroVideo>[],
+      refresh: refresh,
+      fetch: _repository.fetchCourseIntroVideos,
+    );
+
     final categories = await categoriesRequest;
     final courses = await coursesRequest;
     final banners = await bannersRequest;
     final hero = await heroRequest;
+    final introVideos = await introVideosRequest;
 
     if (!mounted) return;
 
     setState(() {
       _categories = categories.data;
       _courses = courses.data;
+      _introVideos = introVideos.data;
 
       // A failed refresh leaves the previous hero (image and link) untouched.
       final heroSection = hero.data;
@@ -148,6 +168,19 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  /// Opens a teaser card.
+  ///
+  /// The card carries the whole [Course] it was built from, so the details
+  /// screen opens with its real title and teacher even before the backend
+  /// answers. A card whose course could not be resolved is inert rather than
+  /// opening an empty screen.
+  void _openIntroVideo(CourseIntroVideo video) {
+    final Course? course = video.course;
+    if (course == null) return;
+
+    _openCourse(course);
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -168,18 +201,27 @@ class _HomeScreenState extends State<HomeScreen> {
                   color: AppColors.sectionBackground,
                 ),
               ),
-              SafeArea(
-                child: Column(
-                  children: [
-                    SizedBox(height: 10.h),
-                    HomeHeader(),
-                    SizedBox(height: 22.h),
-                    HomeHero(imageUrl: _heroImageUrl, linkUrl: _heroLinkUrl),
-                    SizedBox(height: 22.h),
-                    HomeCategories(categories: _categories),
-                    // Scrollable promo banner with glass page indicator.
-                    SizedBox(height: 29.h),
-                    HomeBanner(banners: _banners),
+              // The content column, pinned to the viewport width.
+              //
+              // Without this the `Stack` sizes itself to this child in the cross
+              // axis, and a `Column` that contains a **horizontal** list (the
+              // teaser carousel, the promo banner) reports an unbounded width —
+              // which widens the whole `Stack` past the screen and silently
+              // shrinks every other section's cells.
+              SizedBox(
+                width: double.infinity,
+                child: SafeArea(
+                  child: Column(
+                    children: [
+                      SizedBox(height: 10.h),
+                      HomeHeader(),
+                      SizedBox(height: 22.h),
+                      HomeHero(imageUrl: _heroImageUrl, linkUrl: _heroLinkUrl),
+                      SizedBox(height: 22.h),
+                      HomeCategories(categories: _categories),
+                      // Scrollable promo banner with glass page indicator.
+                      SizedBox(height: 29.h),
+                      HomeBanner(banners: _banners),
                     SizedBox(height: 30.h),
                     Padding(
                       padding: EdgeInsets.symmetric(horizontal: 25.w),
@@ -270,7 +312,24 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
 
+                    // The trailers themselves, in the very same carousel and
+                    // card the «ویدیو های معرفی دوره» screen uses. Renders
+                    // nothing at all while the list is empty, so the section
+                    // header never sits above an empty strip.
+                    if (_introVideos.isNotEmpty)
+                      Padding(
+                        padding: EdgeInsets.only(top: 18.h),
+                        child: CourseIntroVideos(
+                          videos: _introVideos,
+                          onVideoTap: _openIntroVideo,
+                        ),
+                      ),
+
+                    // Keeps the scroll view tall enough to stay pullable when
+                    // the teaser list is empty.
+                    SizedBox(height: 25.h),
                   ],
+                  ),
                 ),
               ),
             ],

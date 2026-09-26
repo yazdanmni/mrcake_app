@@ -156,14 +156,23 @@ class CourseCard extends StatelessWidget {
                       // ==================================================
                       // LESSONS + DURATION
                       // ==================================================
+                      //
+                      // ⚠️ Both items are `Flexible`. The card is a fixed
+                      // `cardWidth` wide while these run at `14.sp`, which in
+                      // this project scales with the screen **width** — so on a
+                      // tablet (1024×768) «۸ قسمت • ۲ ساعت» is far wider than
+                      // the 190 px card and the row used to overflow by 84 px.
+                      // Shrinking lets the longer label ellipsise instead.
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          _InfoItem(
-                            text: '${_toPersianDigits(course.lessons)} قسمت',
-                            fontFamily: 'Shabnam',
-                            fontSize: 14.sp,
-                            color: AppColors.textSecondary,
+                          Flexible(
+                            child: _InfoItem(
+                              text: '${_toPersianDigits(course.lessons)} قسمت',
+                              fontFamily: 'Shabnam',
+                              fontSize: 14.sp,
+                              color: AppColors.textSecondary,
+                            ),
                           ),
 
                           SizedBox(width: 9.w),
@@ -179,11 +188,13 @@ class CourseCard extends StatelessWidget {
 
                           SizedBox(width: 9.w),
 
-                          _InfoItem(
-                            text: '${_toPersianDigits(course.duration)} ساعت',
-                            fontFamily: 'Shabnam',
-                            fontSize: 14.sp,
-                            color: AppColors.textSecondary,
+                          Flexible(
+                            child: _InfoItem(
+                              text: '${_toPersianDigits(course.duration)} ساعت',
+                              fontFamily: 'Shabnam',
+                              fontSize: 14.sp,
+                              color: AppColors.textSecondary,
+                            ),
                           ),
                         ],
                       ),
@@ -205,31 +216,43 @@ class CourseCard extends StatelessWidget {
                           ),
                         )
                       else
+                        // Same reason as the lessons/duration row above: a
+                        // `16.sp` price inside a fixed-width card is wider than
+                        // the card on a tablet, so the number and its currency
+                        // both have to be able to shrink.
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           crossAxisAlignment: CrossAxisAlignment.baseline,
                           textBaseline: TextBaseline.alphabetic,
                           children: [
-                            Text(
-                              _formatPrice(course.price),
-                              style: TextStyle(
-                                fontFamily: 'Shabnam',
-                                fontSize: 16.sp,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.textPrimary,
-                                height: 1,
+                            Flexible(
+                              child: Text(
+                                _formatPrice(course.price),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontFamily: 'Shabnam',
+                                  fontSize: 16.sp,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.textPrimary,
+                                  height: 1,
+                                ),
                               ),
                             ),
 
                             SizedBox(width: 4.w),
 
-                            Text(
-                              course.currency,
-                              style: TextStyle(
-                                fontFamily: 'Pinar',
-                                fontSize: 12.sp,
-                                color: AppColors.textSecondary,
-                                height: 1,
+                            Flexible(
+                              child: Text(
+                                course.currency,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontFamily: 'Pinar',
+                                  fontSize: 12.sp,
+                                  color: AppColors.textSecondary,
+                                  height: 1,
+                                ),
                               ),
                             ),
                           ],

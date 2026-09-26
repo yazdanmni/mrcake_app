@@ -50,6 +50,18 @@ class ExploreVideo {
   final int? thumbnailMediaId;
   final int? courseId;
 
+  /// `true` when [videoUrl] is empty **because the media lookup was rejected**
+  /// rather than because the reel has no video.
+  ///
+  /// `GET v1/content/explore-videos/` is public but hands out media **ids**, and
+  /// `GET v1/media/{id}/` is auth-only: a guest is refused every id, so the url
+  /// stays empty on a video whose file is sitting on the public CDN. Without
+  /// this flag the player can only say «آدرس ویدیو خالی است» — which is a lie —
+  /// instead of telling the user to sign in. Never set by [ExploreVideo.fromJson];
+  /// only
+  /// [ExploreVideo.withMedia] when the repository passes the reason along.
+  final bool videoNeedsAuth;
+
   const ExploreVideo({
     required this.id,
     required this.videoUrl,
@@ -66,6 +78,7 @@ class ExploreVideo {
     this.videoMediaId,
     this.thumbnailMediaId,
     this.courseId, // Added courseId to constructor
+    this.videoNeedsAuth = false,
   });
 
   String get instructorFullName {
@@ -117,7 +130,15 @@ class ExploreVideo {
   }
 
   /// Fills in the urls once the repository has resolved the media ids.
-  ExploreVideo withMedia({String? videoUrl, String? thumbnail}) {
+  ///
+  /// [needsAuth] is set when the lookup was **refused** rather than empty — see
+  /// [videoNeedsAuth]. It is deliberately not recomputed here: only the caller
+  /// that made the request knows why it failed.
+  ExploreVideo withMedia({
+    String? videoUrl,
+    String? thumbnail,
+    bool needsAuth = false,
+  }) {
     return ExploreVideo(
       id: id,
       videoUrl: videoUrl ?? this.videoUrl,
@@ -134,6 +155,7 @@ class ExploreVideo {
       videoMediaId: videoMediaId,
       thumbnailMediaId: thumbnailMediaId,
       courseId: courseId, // Pass courseId
+      videoNeedsAuth: needsAuth || videoNeedsAuth,
     );
   }
 
@@ -160,6 +182,7 @@ class ExploreVideo {
       videoMediaId: videoMediaId,
       thumbnailMediaId: thumbnailMediaId,
       courseId: courseId, // Pass courseId
+      videoNeedsAuth: videoNeedsAuth,
     );
   }
 

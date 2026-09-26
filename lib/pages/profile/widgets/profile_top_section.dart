@@ -9,13 +9,11 @@ import 'package:mr_cake_project/core/session/session_manager.dart';
 
 class ProfileTopSection extends StatelessWidget {
   final ValueChanged<File?>? onAvatarChanged;
-  final ValueChanged<File?>? onBannerChanged;
   final VoidCallback? onCartTap;
 
   const ProfileTopSection({
     super.key,
     this.onAvatarChanged,
-    this.onBannerChanged,
     this.onCartTap,
   });
 
@@ -30,16 +28,32 @@ class ProfileTopSection extends StatelessWidget {
 
         return SizedBox(
           width: double.infinity,
-          // Banner: ~245 + Avatar offset: 250 + avatar size: 135 -> ~390, plus padding
-          height: 425.h,
+          // Banner: 245 (flush to the very top) + avatar offset: 250
+          // + avatar size: 135 -> ~390, plus padding.
+          height: 375.h,
           child: Stack(
             clipBehavior: Clip.none,
             children: [
               // =====================================================
-              // MINIMAL HEADER — Shopping Cart Icon Only
+              // BANNER — flush against the top of the screen.
+              //
+              // `top: 0` and **outside** the `SafeArea` on purpose: the banner
+              // is a full-bleed image that must start at the physical top edge,
+              // not below the status bar. The cart pill is drawn over it, inside
+              // its own `SafeArea`, so it still clears the notch.
               // =====================================================
               Positioned(
                 top: 0,
+                left: 0,
+                right: 0,
+                child: ProfileBanner(bannerImageUrl: bannerUrl),
+              ),
+
+              // =====================================================
+              // MINIMAL HEADER — Shopping Cart Icon Only
+              // =====================================================
+              Positioned(
+                top: 30.h,
                 left: 0,
                 right: 0,
                 child: SafeArea(
@@ -118,23 +132,10 @@ class ProfileTopSection extends StatelessWidget {
               ),
 
               // =====================================================
-              // BANNER
-              // =====================================================
-              Positioned(
-                top: 60.h,
-                left: 0,
-                right: 0,
-                child: ProfileBanner(
-                  bannerImageUrl: bannerUrl,
-                  onImageChanged: onBannerChanged,
-                ),
-              ),
-
-              // =====================================================
               // AVATAR
               // =====================================================
               Positioned(
-                top: 250.h,
+                top: 170.h,
                 child: ProfileAvatar(
                   imageUrl: avatarUrl,
                   onImageChanged: onAvatarChanged,

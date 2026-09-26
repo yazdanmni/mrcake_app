@@ -92,6 +92,7 @@ class _GlassCategoryCard extends StatelessWidget {
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 if (isMore)
                   Icon(
@@ -122,13 +123,24 @@ class _GlassCategoryCard extends StatelessWidget {
 
                 SizedBox(height: 4.h),
 
-                Text(
-                  title,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontFamily: 'shabnam',
-                    fontSize: 16.sp,
-                    color: AppColors.textPrimary,
+                // The cell is a square the width of one grid column, so its
+                // height is fixed. A title that wraps (or a title the font
+                // paints taller than expected) used to overflow it — the icon
+                // box plus two lines did not fit. Capping the label at one line
+                // and letting it flex keeps every tile inside its cell; short
+                // titles look exactly as they did.
+                Flexible(
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: 'shabnam',
+                      fontSize: 16.sp,
+                      height: 1.2,
+                      color: AppColors.textPrimary,
+                    ),
                   ),
                 ),
               ],

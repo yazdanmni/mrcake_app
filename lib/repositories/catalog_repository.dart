@@ -300,6 +300,20 @@ class CatalogRepository {
   Future<List<Course>> fetchMyFavorites({int page = 1}) =>
       _courses(ApiEndpoints.coursesMyFavorites, page: page, cache: false);
 
+  /// The catalogue the gift screen needs, to name the course a coupon is for
+  /// and to date one.
+  ///
+  /// «هدیه‌ها» has to answer two questions about every code — *which course is
+  /// this for* and *until when is it valid* — but the coupon only carries
+  /// `specific_courses` as **ids**. Resolving them one by one would cost a
+  /// request per course, so this returns the whole first page of the catalogue
+  /// (cached, public) and lets the caller look ids up locally.
+  ///
+  /// `pageSize` is deliberately large: a coupon pointing at a course outside the
+  /// first page would otherwise lose its name.
+  Future<List<Course>> fetchGiftCatalogue({int pageSize = 100}) =>
+      fetchCourses(pageSize: pageSize);
+
   /// `GET /api/v1/courses/{id}/` -> `CourseDetail`
   Future<Map<String, dynamic>> fetchCourseRaw(int id) =>
       _object(ApiEndpoints.course(id));
@@ -786,15 +800,29 @@ class CatalogRepository {
   static void invalidateCatalogueCache() => RemoteCache.clear();
 
   /// Fills in the video / thumbnail urls and the instructor of a reel.
+  ///
+  /// ⚠️ **A guest cannot resolve any of these.** `v1/media/{id}/` is auth-only
+  /// while `v1/content/explore-videos/` is public, so an anonymous visitor is
+  /// handed a page of media **ids** it is then refused permission to look up.
+  /// The url stays empty and, before [ExploreVideo.videoNeedsAuth] existed, the
+  /// player reported «آدرس ویدیو خالی است» for a file that is on a public CDN.
+  /// The reason is carried through instead of being flattened into an empty
+  /// string, so the player can ask the user to sign in rather than lie to them.
   Future<ExploreVideo> _hydrateVideo(ExploreVideo video) async {
-    final media = await Future.wait([
-      MediaRepository.instance.resolveUrl(video.videoMediaId),
-      MediaRepository.instance.resolveUrl(video.thumbnailMediaId),
+    final results = await Future.wait([
+      MediaRepository.instance.resolveUrlDetailed(video.videoMediaId),
+      MediaRepository.instance.resolveUrlDetailed(video.thumbnailMediaId),
     ]);
 
+    final MediaResolution videoMedia = results[0];
+    final MediaResolution thumbMedia = results[1];
+
     var hydrated = video.withMedia(
-      videoUrl: media[0],
-      thumbnail: media[1],
+      videoUrl: videoMedia.url,
+      thumbnail: thumbMedia.url,
+      // Only the video matters: a refused *thumbnail* still leaves a playable
+      // reel, whereas a refused video is the whole feature missing.
+      needsAuth: videoMedia.isUnauthorized,
     );
 
     if (hydrated.instructorFirstName.isEmpty && hydrated.instructorId > 0) {

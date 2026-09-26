@@ -54,6 +54,14 @@ class _RecipesScreenState extends State<RecipesScreen> {
   bool _isLoadingMore = false;
   bool _hasMoreRecipes = true;
 
+  /// How many pages have come back from the backend so far.
+  ///
+  /// [_hasMoreRecipes] starts `true` and is only corrected after a response, so
+  /// on its own it cannot tell "nothing loaded yet" from "the backend has more
+  /// pages but every row so far belonged to a course". This counter is what
+  /// separates the two.
+  int _loadedPages = 0;
+
   /// شناسه آخرین درخواست تا پاسخ‌های قدیمی نتیجه جدید را خراب نکنند.
   int _searchRequestId = 0;
 
@@ -74,6 +82,7 @@ class _RecipesScreenState extends State<RecipesScreen> {
     if (refresh) {
       _currentPage = 1;
       _hasMoreRecipes = true;
+      _loadedPages = 0;
       _recipes.clear();
       _filteredRecipes.clear();
     }
@@ -117,12 +126,19 @@ class _RecipesScreenState extends State<RecipesScreen> {
         // `category`, `featured`, `difficulty`, `is_active` — no `course__isnull`),
         // so the exclusion is done here. `RecipeList.course` is a plain
         // nullable id, which is what `Recipe.courseId` parses.
-        _recipes.addAll(recipesResult.data);
-        _filteredRecipes = List.from(_recipes); // Update filtered list too
+        //
+        // The filter is applied on **every** page, not just on refresh, and it
+        // is applied to `_recipes` (the accumulated set) so a refresh cannot
+        // leave course recipes behind.
+        _recipes.addAll(
+          recipesResult.data.where((Recipe recipe) => recipe.courseId == null),
+        );
+        _filteredRecipes = List<Recipe>.from(_recipes);
 
         // Advance on what the *backend* returned, not on what survived the
         // filter: a page whose every row belongs to a course would otherwise
         // look like the end of the list and silently hide the pages after it.
+        _loadedPages++;
         _currentPage++;
         _hasMoreRecipes = recipesResult.data.isNotEmpty;
       });
@@ -590,7 +606,14 @@ class _RecipesScreenState extends State<RecipesScreen> {
     if (_filteredRecipes.isEmpty) {
       // Still fetching: the spinner further down the sliver list is the whole
       // story, so show nothing rather than flashing an empty state.
-      if (_isLoadingMore) return const SliverToBoxAdapter();
+      //
+      // The same holds while the backend still has pages left: with the
+      // course-recipes filter applied client-side, page 1 can be *entirely*
+      // course recipes while page 2 holds the standalone ones. Declaring the
+      // library empty here would be a lie — keep loading instead.
+      if (_isLoadingMore || (_hasMoreRecipes && _recipes.isEmpty && _loadedPages == 0)) {
+        return const SliverToBoxAdapter();
+      }
 
       // A search that matched nothing deserves a different sentence from a
       // library that is genuinely empty.

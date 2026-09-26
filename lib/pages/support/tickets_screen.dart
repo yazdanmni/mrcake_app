@@ -9,6 +9,7 @@ import 'package:mr_cake_project/core/network/remote_data.dart';
 import 'package:mr_cake_project/core/theme/app_colors.dart';
 import 'package:mr_cake_project/repositories/profile_repository.dart';
 import 'package:mr_cake_project/repositories/support_repository.dart';
+import 'package:mr_cake_project/repositories/wallet_repository.dart';
 
 class TicketSubject {
   final int id;
@@ -172,9 +173,21 @@ class _TicketsScreenState extends State<TicketsScreen> {
 
     setState(() {
       _subjects = subjects.data;
-      _tickets = tickets.data;
+
+      // Wallet top-up requests are filed as tickets, but they are not a support
+      // conversation: they have their own screen («اعتبار شما») and showing them
+      // here would bury the real ones. Filtered on the marker the wallet writes
+      // into the title, so no endpoint has to change.
+      _tickets = tickets.data
+          .where((TicketModel ticket) => !isWalletRequest(ticket.title))
+          .toList(growable: false);
     });
   }
+
+  /// `true` when a ticket title marks an in-app credit request rather than a
+  /// real support conversation. The marker is written by `WalletRepository`.
+  static bool isWalletRequest(String title) =>
+      title.contains(WalletRepository.marker);
 
   @override
   Widget build(BuildContext context) {

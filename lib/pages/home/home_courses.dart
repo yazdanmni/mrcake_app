@@ -140,35 +140,53 @@ class _HomeCoursesState extends State<HomeCourses> {
               // ==================================================
               // CARDS
               // ==================================================
+              //
+              // **Not** wrapped in a plain `IgnorePointer` any more. The
+              // `PageView` above is `Positioned.fill` and `SizedBox.expand()`s
+              // every page, so it covers the whole carousel: it eats the tap
+              // before it can ever reach a card, and `IgnorePointer` on this
+              // layer only guarantees that. Taps are reported from *there*
+              // instead — see the swipe engine below.
 
-              IgnorePointer(
-                child: _CardsLayer(
-                  courses: courses,
-                  page: _page,
-                  cardWidth: cardWidth,
-                  cardHeight: cardHeight,
-                  onCourseTap: widget.onCourseTap,
-                ),
+              _CardsLayer(
+                courses: courses,
+                page: _page,
+                cardWidth: cardWidth,
+                cardHeight: cardHeight,
+                onCourseTap: widget.onCourseTap,
               ),
 
               // ==================================================
               // SWIPE ENGINE
               // ==================================================
-
+              //
+              // The layer that actually sits on top owns every gesture: it has
+              // to, because it is the only thing that can both drive the page
+              // and receive a tap. `onTap` is therefore decided here, from the
+              // page the carousel has settled on — the centred card.
+              //
+              // This is the whole reason a tap used to do nothing: the cards
+              // were pointer-ignoring underneath an opaque full-size
+              // `PageView`, so «دوره های محبوب» was decorative. The visible
+              // consequence of getting it wrong is not a crash but a card that
+              // silently refuses to open.
               Positioned.fill(
-                child: PageView.builder(
-                  controller: _pageController,
-                  itemCount: courses.length,
-                  physics:
-                      const BouncingScrollPhysics(),
-                  clipBehavior: Clip.none,
-                  padEnds: true,
-                  itemBuilder: (
-                    BuildContext context,
-                    int index,
-                  ) {
-                    return const SizedBox.expand();
-                  },
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => _openCenteredCourse(courses),
+                  child: PageView.builder(
+                    controller: _pageController,
+                    itemCount: courses.length,
+                    physics: const BouncingScrollPhysics(),
+                    clipBehavior: Clip.none,
+                    padEnds: true,
+                    itemBuilder: (
+                      BuildContext context,
+                      int index,
+                    ) {
+                      return const SizedBox.expand();
+                    },
+                  ),
                 ),
               ),
             ],
@@ -176,6 +194,25 @@ class _HomeCoursesState extends State<HomeCourses> {
         );
       },
     );
+  }
+
+  /// Opens the course currently centred in the carousel.
+  ///
+  /// [page] can land between two cards while a swipe is in flight, so the index
+  /// is rounded to whichever card is closest to the centre — the one under the
+  /// user's finger. Out-of-range guards are not defensive noise: `onTap` fires
+  /// on the frame the gesture ends, and the list can still be swapped by an
+  /// in-flight refresh.
+  void _openCenteredCourse(List<Course> courses) {
+    final ValueChanged<Course>? onCourseTap = widget.onCourseTap;
+
+    if (onCourseTap == null || courses.isEmpty) return;
+
+    final int index = _page.round();
+
+    if (index < 0 || index >= courses.length) return;
+
+    onCourseTap(courses[index]);
   }
 
   double _getCardWidth(
@@ -213,6 +250,11 @@ class _CardsLayer extends StatelessWidget {
   final double page;
   final double cardWidth;
   final double cardHeight;
+
+  /// Passed down so the **card itself** keeps its pressed/ripple feedback, and
+  /// so `CourseCard` stays a normal tappable widget. The tap is *not* reported
+  /// from here: this layer sits under an opaque full-size `PageView`, so a tap
+  /// on it can never arrive. [HomeCourses._openCenteredCourse] owns that.
   final ValueChanged<Course>? onCourseTap;
 
   const _CardsLayer({

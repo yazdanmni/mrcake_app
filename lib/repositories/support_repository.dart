@@ -3,6 +3,7 @@ import '../core/network/api_config.dart';
 import '../models/cart_item.dart';
 import '../models/coupon_model.dart';
 import '../models/course_order.dart';
+import '../models/gift.dart';
 import 'catalog_repository.dart';
 
 /// Screen -> Endpoint -> Model -> Repository
@@ -13,6 +14,91 @@ import 'catalog_repository.dart';
 ///  TicketsScreen  GET   v1/support/{id}/                -> `TicketDetail`
 ///  TicketsScreen  POST  v1/support/{id}/send_message/   -> `TicketMessage`
 ///  TicketsScreen  POST  v1/support/{id}/close/          -> `TicketDetail`
+/// `PriorityEnum` — `{low, medium, high, urgent}`.
+///
+/// The live endpoint rejects anything outside this set with a **400**, and the
+/// schema's `default` is `medium`. Before this existed the app sent `'normal'`,
+/// which is not a member — every ticket creation failed with
+/// `priority: "normal" یک انتخاب معتبر نیست.`
+class TicketPriority {
+  TicketPriority._();
+
+  static const String low = 'low';
+  static const String medium = 'medium';
+  static const String high = 'high';
+  static const String urgent = 'urgent';
+
+  static const List<String> all = <String>[low, medium, high, urgent];
+
+  /// The Persian label for a priority value.
+  static String label(String value) {
+    switch (value) {
+      case low:
+        return 'کم';
+      case high:
+        return 'بالا';
+      case urgent:
+        return 'فوری';
+      case medium:
+      default:
+        return 'متوسط';
+    }
+  }
+
+  /// Maps any incoming string onto a value the API accepts.
+  ///
+  /// Silently falls back to [medium] (the schema default) rather than letting an
+  /// unknown enum reach the network — a ticket that fails validation is a ticket
+  /// the user never gets.
+  static String resolve(String? value) {
+    final normalized = (value ?? '').trim().toLowerCase();
+    return all.contains(normalized) ? normalized : medium;
+  }
+}
+
+/// `TicketStatusEnum` — the values `TicketList.status` / `TicketDetail.status`
+/// can hold.
+///
+/// A wallet top-up request rides on a ticket, and its whole lifecycle is this
+/// field: `open` → waiting for an admin, `closed`/`resolved` → the top-up was
+/// carried out. Keep the closed set in one place so the wallet screen and the
+/// tickets screen agree on what "done" means.
+class TicketStatus {
+  TicketStatus._();
+
+  static const String open = 'open';
+  static const String pending = 'pending';
+  static const String answered = 'answered';
+  static const String resolved = 'resolved';
+  static const String closed = 'closed';
+
+  static const String rejected = 'rejected';
+
+  /// Statuses that mean "this request is finished".
+  static const Set<String> finished = <String>{resolved, closed};
+
+  static bool isFinished(String? status) =>
+      finished.contains((status ?? '').trim().toLowerCase());
+
+  static String label(String? value) {
+    switch ((value ?? '').trim().toLowerCase()) {
+      case resolved:
+        return 'رسیدگی شده';
+      case closed:
+        return 'بسته شده';
+      case answered:
+        return 'پاسخ داده شده';
+      case pending:
+        return 'در انتظار';
+      case rejected:
+        return 'رد شده';
+      case open:
+      default:
+        return 'باز';
+    }
+  }
+}
+
 class SupportRepository {
   SupportRepository._();
 
@@ -42,17 +128,26 @@ class SupportRepository {
   ///
   /// The body matches `TicketCreate`: `title`, `subject_id`, `priority`,
   /// `message` and an optional `attachment` (a media url).
+  ///
+  /// ⚠️ **[priority] must be a [TicketPriority] value.** The live backend types
+  /// it as `PriorityEnum = {low, medium, high, urgent}` and answers
+  /// `400 priority: "normal" یک انتخاب معتبر نیست.` for anything else — which
+  /// is exactly why "ارسال تیکت" failed for every ticket, whoever filed it.
+  /// [TicketPriority.medium] is also the schema's own `default`.
   Future<Map<String, dynamic>> createTicket({
     required String title,
     required String message,
     int? subjectId,
     String? attachment,
-    String priority = 'normal',
+    String priority = TicketPriority.medium,
   }) async {
     final Map<String, dynamic> payload = <String, dynamic>{
       'title': title,
       'message': message,
-      'priority': priority,
+      // Never trust a caller-supplied string here: an invalid enum is a silent
+      // hard failure at the API, and the ticket is the one thing that must go
+      // through. Unknown values fall back to the schema default.
+      'priority': TicketPriority.resolve(priority),
     };
 
     if (subjectId != null && subjectId > 0) {
@@ -168,26 +263,59 @@ class SupportRepository {
 
 /// Screen -> Endpoint -> Model -> Repository
 ///
-///  Notifications  GET  v1/notifications/            -> page of `Notification`
-///  Notifications  POST v1/notifications/{id}/read/  -> `Notification`
-class NotificationRepository {
-  NotificationRepository._();
+///  GiftsScreen  GET  v1/discounts/apply/my_coupons/  -> list of `Coupon`
+///
+/// ## The response shape
+///
+/// This endpoint does **not** answer a DRF page. It answers the app's own
+/// envelope wrapping a **bare list**:
+///
+/// ```json
+/// {"success": true, "data": []}
+/// ```
+///
+/// `ApiClient.unwrapEnvelope` already returns the inner `data`, so the repository
+/// sees a `List`. It must never go through `PagedResult.from`: an empty page
+/// would then be read as "one object" and the gifts screen would render a single
+/// blank card instead of its empty state. It is typed [Gift] at the call site.
+class ShopGiftRepository {
+  ShopGiftRepository._();
 
-  static final NotificationRepository instance = NotificationRepository._();
+  static final ShopGiftRepository instance = ShopGiftRepository._();
 
   ApiClient get _api => ApiClient.instance;
 
-  Future<PagedResult> fetchNotifications({int page = 1}) async {
+  /// `GET /api/v1/discounts/apply/my_coupons/` (auth) -> `List<Gift>`.
+  ///
+  /// Not cached: a coupon can be granted by an admin at any moment, and a stale
+  /// empty list would hide a gift the user was just given.
+  Future<List<Gift>> fetchMyGifts({int page = 1}) async {
     final data = await _api.get<dynamic>(
-      ApiEndpoints.notifications,
+      ApiEndpoints.discountsMyCoupons,
       query: {'page': page},
     );
-    return PagedResult.from(data);
-  }
 
-  Future<Map<String, dynamic>> markAsRead(int id) async {
-    final data = await _api.post<dynamic>(ApiEndpoints.notificationRead(id));
-    return Json.asMap(data) ?? <String, dynamic>{};
+    // A bare list, or a DRF page if the backend ever starts paginating — both
+    // are accepted so this cannot silently break on a deployment change.
+    if (data is List) {
+      return Json.asMapList(data)
+          .map(Gift.fromJson)
+          .where((Gift gift) => gift.code.isNotEmpty)
+          .toList(growable: false);
+    }
+
+    final map = Json.asMap(data);
+    if (map == null) return const <Gift>[];
+
+    final raw = map['results'];
+    if (raw is List) {
+      return Json.asMapList(raw)
+          .map(Gift.fromJson)
+          .where((Gift gift) => gift.code.isNotEmpty)
+          .toList(growable: false);
+    }
+
+    return const <Gift>[];
   }
 }
 
